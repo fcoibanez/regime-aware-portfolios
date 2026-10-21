@@ -1,0 +1,8 @@
+# Online Appendix A: the simulation calibrated to the highest-likelihood regime
+# model instead of the one reached by the most starts.
+
+extends = "main.toml"
+name = "alt_calibration"
+
+[regimes]
+selection = "best"

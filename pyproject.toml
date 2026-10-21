@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "regime-aware-portfolios"
+version = "0.1.0"
+description = "Replication code for a study of regime-aware portfolio construction with regime-weighted least squares."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Francisco Ibanez" }]
+dependencies = [
+    "rwls==0.1.0",
+    "numpy",
+    "pandas",
+    "scipy",
+    "cvxpy",
+    "pyarrow",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+notebooks = [
+    "jupyter",
+    "jupytext",
+    "nbconvert",
+]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/regime_aware_portfolios"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "network: downloads data from the internet (deselect with -m 'not network')",
+    "slow: runs for more than a few seconds (deselect with -m 'not slow')",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["src", "tests"]
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "NPY"]

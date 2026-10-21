@@ -1,0 +1,58 @@
+# Parameters of the main study. Every value the code uses is set here; modules
+# receive them through regime_aware_portfolios.config and define no constants of
+# their own. The appendix studies override a few of these (see extends).
+
+name = "main"
+
+[data]
+start = "1963-07"                 # first month of factor and stock data
+end = "2024-12"                   # last month
+factor_model = "ff5+mom"          # rwls.load_factors model
+crsp_snapshot = "crsp_monthly_2026-06-16.parquet"
+
+[sample]
+coverage = 0.99                   # keep the largest stocks making up this share of market value, each month
+min_history = 120                 # months of continuous returns a stock needs
+
+[regimes]
+n_regimes = 3
+n_starts = 1000                   # cold starts of the calibrating model
+selection = "modal"               # keep the model reached by the most starts
+
+[regime_selection]                # Figure 1
+n_regimes = [1, 2, 3, 4, 5, 6, 7, 8]
+n_starts = 1000
+n_subperiods = 3                  # the full sample and this many equal sub-periods
+
+[simulation]
+n_paths = 1000
+n_stocks = 200
+n_in_sample = 600                 # months before the first decision date
+n_out_of_sample = 60              # decision dates
+
+[strategies]
+risk_aversion = [1, 5, 10, 25, 50]
+reported_risk_aversion = [10, 25, 50]
+rolling_window = 36               # rolling OLS benchmark, months
+rolling_window_sensitivity = [24, 36, 60]
+costa_kwon_window = 24            # hard-classification window, months
+costa_kwon_regimes = 2
+costa_kwon_factors = ["Mkt-RF"]   # factors the Costa and Kwon regime model is fitted on
+
+[costs]
+decimalization = "2001-01"        # spreads measured from this month on
+quantile = 0.5                    # median quoted spread; the cost is half of it
+
+[inference]
+alpha = 0.05
+bootstrap_draws = 499
+bootstrap_block = 1
+detection_multiples = [1, 2, 4, 8, 16]   # history lengths, in multiples of one path
+
+[seeds]
+regimes = 13                      # first cold start; start j uses regimes + j
+simulation = 20261020             # root of the per-path streams
+bootstrap = 20261211              # root of the per-path bootstrap streams
+
+[solver]
+name = "CLARABEL"

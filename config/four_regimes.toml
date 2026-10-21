@@ -1,0 +1,8 @@
+# Online Appendix B: the whole study with four regimes, in the calibration and in
+# the estimators.
+
+extends = "main.toml"
+name = "four_regimes"
+
+[regimes]
+n_regimes = 4
