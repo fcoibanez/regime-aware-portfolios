@@ -1,5 +1,7 @@
 import json
 
+import rwls
+
 from regime_aware_portfolios import load_config, manifest, paths
 
 
@@ -12,7 +14,7 @@ def test_paths_point_into_the_repository():
 def test_environment_records_the_packages():
     env = manifest.environment()
     assert set(env["packages"]) == set(manifest.PACKAGES)
-    assert env["packages"]["rwls"] == "0.1.0"
+    assert env["packages"]["rwls"] == rwls.__version__
     assert env["python"].count(".") == 2
 
 

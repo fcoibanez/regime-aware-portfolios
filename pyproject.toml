@@ -12,7 +12,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Francisco Ibanez" }]
 dependencies = [
-    "rwls==0.1.0",
+    "rwls==0.2.0",
     "numpy",
     "pandas",
     "scipy",
