@@ -31,6 +31,9 @@ dev = [
     "pytest>=8",
     "ruff>=0.6",
 ]
+wrds = [
+    "wrds",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/regime_aware_portfolios"]

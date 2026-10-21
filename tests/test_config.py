@@ -89,6 +89,7 @@ def test_unknown_and_missing_values_are_rejected(tmp_path):
             "rolling_window_sensitivity = [24, 60]",
         ),
         ("alpha = 0.05", "alpha = 1.5"),
+        ('crsp_start = "1960-01"', 'crsp_start = "1970-01"'),
     ],
 )
 def test_invalid_values_are_rejected(tmp_path, old, new):

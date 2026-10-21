@@ -36,9 +36,15 @@ class DataConfig:
     end: str
     factor_model: str
     crsp_snapshot: str
+    crsp_start: str
+    crsp_end: str
 
     def __post_init__(self) -> None:
         _require(self.start < self.end, "data.start must precede data.end")
+        _require(
+            self.crsp_start <= self.start and self.end <= self.crsp_end,
+            "the CRSP months must cover data.start to data.end",
+        )
         _require(
             self.factor_model in rwls.factors.MODELS,
             f"data.factor_model must be one of {sorted(rwls.factors.MODELS)}",
