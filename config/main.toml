@@ -8,7 +8,6 @@ name = "main"
 start = "1963-07"                 # first month of factor and stock data
 end = "2024-12"                   # last month
 factor_model = "ff5+mom"          # rwls.load_factors model
-crsp_snapshot = "crsp_monthly_2026-06-16.parquet"
 crsp_start = "1960-01"            # months requested from CRSP
 crsp_end = "2024-12"
 

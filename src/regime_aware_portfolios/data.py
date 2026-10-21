@@ -8,7 +8,7 @@ columns of :data:`CRSP_COLUMNS`, indexed by month-end date and PERMNO.
 
 from __future__ import annotations
 
-import hashlib
+import urllib.request
 from importlib import resources
 from pathlib import Path
 
@@ -19,13 +19,15 @@ __all__ = [
     "CRSP_COLUMNS",
     "adjust_for_delisting",
     "crsp_query",
+    "excess_returns",
     "fetch_crsp_monthly",
     "fetch_usrec",
     "load_crsp",
     "market_value",
     "prepare_crsp",
+    "read_usrec",
     "save_crsp",
-    "sha256",
+    "save_usrec",
 ]
 
 #: Columns of the processed CRSP table and their types. ``ret_adj`` is the return
@@ -147,15 +149,44 @@ def market_value(crsp: pd.DataFrame) -> pd.Series:
     return mv.where(mv > 0).rename("mktcap")
 
 
+def excess_returns(crsp: pd.DataFrame, rf: pd.Series) -> pd.DataFrame:
+    """Monthly excess returns and market values of every stock in the months of ``rf``.
+
+    The excess return is the delisting-adjusted return less the risk-free rate.
+    Rows with a missing return are kept, so that each month's market values cover
+    every stock listed in it.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Columns ``excess_ret`` and ``mktcap``, indexed by date and PERMNO.
+    """
+    dates = crsp.index.get_level_values("date")
+    rows = crsp[dates.isin(rf.index)]
+    rf_by_row = rf.reindex(rows.index.get_level_values("date")).to_numpy()
+    return pd.DataFrame(
+        {
+            "excess_ret": rows["ret_adj"].to_numpy() - rf_by_row,
+            "mktcap": market_value(rows).to_numpy(),
+        },
+        index=rows.index,
+    )
+
+
 def _with_schema(df: pd.DataFrame) -> pd.DataFrame:
     if list(df.index.names) != ["date", "permno"]:
         raise ValueError("the CRSP table must be indexed by date and permno")
     missing = [c for c in CRSP_COLUMNS if c not in df.columns]
     if missing:
         raise ValueError(f"the CRSP table lacks column(s) {missing}")
-    out = df[list(CRSP_COLUMNS)].astype(CRSP_COLUMNS)
-    if not isinstance(out.index.get_level_values("date"), pd.DatetimeIndex):
+    dates = df.index.get_level_values("date")
+    if not isinstance(dates, pd.DatetimeIndex):
         raise ValueError("the CRSP dates must be datetimes")
+    out = df[list(CRSP_COLUMNS)].astype(CRSP_COLUMNS)
+    out.index = pd.MultiIndex.from_arrays(
+        [dates, df.index.get_level_values("permno").astype("int64")],
+        names=["date", "permno"],
+    )
     if out.index.duplicated().any():
         raise ValueError("the CRSP table has duplicated date and permno pairs")
     return out
@@ -173,6 +204,16 @@ def fetch_usrec(url: str = USREC_URL) -> pd.Series:
     return read_usrec(url)
 
 
+def save_usrec(path: str | Path, url: str = USREC_URL, timeout: float = 30.0) -> None:
+    """Download the USREC series and store FRED's CSV file unchanged."""
+    request = urllib.request.Request(
+        url, headers={"User-Agent": "regime-aware-portfolios"}
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        raw = response.read()
+    Path(path).write_bytes(raw)
+
+
 def read_usrec(source) -> pd.Series:
     """Read the USREC series from a FRED CSV file or URL."""
     frame = pd.read_csv(source)
@@ -180,15 +221,3 @@ def read_usrec(source) -> pd.Series:
     series = frame.set_index(pd.to_datetime(frame[date_col]))["USREC"].astype(int)
     series.index.name = "date"
     return series
-
-
-# ----------------------------------------------------------------------- checksums
-
-
-def sha256(path: str | Path) -> str:
-    """SHA-256 checksum of a file."""
-    digest = hashlib.sha256()
-    with open(path, "rb") as f:
-        for block in iter(lambda: f.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()

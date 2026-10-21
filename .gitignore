@@ -1,6 +1,8 @@
-# Data and results are rebuilt by the scripts, or licensed and not redistributable
+# Data and results are rebuilt by the scripts, or licensed and not redistributable.
+# The public inputs are kept, so that their vintage is fixed.
 data/raw/*
-!data/raw/CHECKSUMS.sha256
+!data/raw/french/
+!data/raw/usrec.csv
 data/derived/
 results/
 

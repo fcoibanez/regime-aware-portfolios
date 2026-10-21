@@ -13,7 +13,7 @@ figure of the paper.
 config/          every parameter of the study, one file per study
   main.toml        the main text
   alt_calibration.toml, four_regimes.toml   the Online Appendix studies
-data/            inputs (raw, with checksums) and rebuilt intermediate files
+data/            inputs (raw) and rebuilt intermediate files
 src/regime_aware_portfolios/   the study's code, imported by scripts and notebooks
 scripts/         the computing stages, run in order
 notebooks/       one notebook per table and figure; they only read results
@@ -23,7 +23,7 @@ tests/
 
 No module defines its own constants: every value comes from a file in `config/`,
 read and checked by `regime_aware_portfolios.config`. Each run records the
-configuration, package versions and data checksums that produced it.
+configuration and package versions that produced it.
 
 ## Environment
 
@@ -35,6 +35,18 @@ python -m pip install --no-deps -e .
 `requirements.lock` pins the exact version of every package used for the
 results in the paper. The code runs on Python 3.11 or later; the results were
 produced with Python 3.13.
+
+## Running
+
+The stages run in order from the repository's root folder. Each writes a
+`manifest.json` next to its results.
+
+| Stage | Command | Writes |
+|---|---|---|
+| 1. Inputs | `python scripts/01_data.py` | `data/derived/` |
+
+Stage 1 needs the CRSP extract, which is licensed and not included; see
+[data/README.md](data/README.md) for how to download it from WRDS.
 
 ## Status
 

@@ -1,4 +1,3 @@
-import hashlib
 import sys
 import types
 
@@ -120,6 +119,18 @@ def test_load_rejects_malformed_tables(tmp_path):
         data.load_crsp(path)
 
 
+def test_load_gives_integer_permnos(tmp_path):
+    crsp = data.prepare_crsp(_raw())
+    crsp.index = crsp.index.set_levels(
+        crsp.index.levels[1].astype("Int64"), level="permno"
+    )
+    path = tmp_path / "crsp.parquet"
+    crsp.to_parquet(path)
+    loaded = data.load_crsp(path)
+    assert loaded.index.get_level_values("permno").dtype == "int64"
+    pd.testing.assert_frame_equal(loaded, data.prepare_crsp(_raw()))
+
+
 def test_market_value():
     crsp = data.prepare_crsp(_raw())
     mv = data.market_value(crsp)
@@ -127,6 +138,21 @@ def test_market_value():
     zero = crsp.copy()
     zero["shrout"] = 0.0
     assert data.market_value(zero).isna().all()
+
+
+def test_excess_returns():
+    crsp = data.prepare_crsp(_raw())
+    crsp.loc[(pd.Timestamp("2020-01-31"), 10001), "ret_adj"] = np.nan
+    rf = pd.Series([0.001], index=pd.DatetimeIndex(["2020-01-31"]))
+    out = data.excess_returns(crsp, rf)
+    assert list(out.columns) == ["excess_ret", "mktcap"]
+    assert list(out.index) == [
+        (pd.Timestamp("2020-01-31"), 10001),
+        (pd.Timestamp("2020-01-31"), 10002),
+    ]
+    assert np.isnan(out["excess_ret"].iloc[0])  # kept, with its market value
+    assert out["mktcap"].iloc[0] == 200.0 * 21.0
+    assert out["excess_ret"].iloc[1] == pytest.approx(0.01 - 0.001)
 
 
 def test_read_usrec(tmp_path):
@@ -138,10 +164,12 @@ def test_read_usrec(tmp_path):
     assert usrec.index.name == "date"
 
 
-def test_sha256(tmp_path):
-    path = tmp_path / "abc.txt"
-    path.write_bytes(b"abc")
-    assert data.sha256(path) == hashlib.sha256(b"abc").hexdigest()
+def test_save_usrec_keeps_the_file_unchanged(tmp_path):
+    source = tmp_path / "fred.csv"
+    source.write_bytes(b"observation_date,USREC\r\n2020-01-01,0\r\n")
+    target = tmp_path / "usrec.csv"
+    data.save_usrec(target, url=source.as_uri())
+    assert target.read_bytes() == source.read_bytes()
 
 
 def test_fetch_runs_the_query_and_processes_it(monkeypatch):

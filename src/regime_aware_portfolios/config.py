@@ -35,7 +35,6 @@ class DataConfig:
     start: str
     end: str
     factor_model: str
-    crsp_snapshot: str
     crsp_start: str
     crsp_end: str
 
