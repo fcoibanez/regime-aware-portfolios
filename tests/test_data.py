@@ -170,6 +170,18 @@ def test_save_usrec_keeps_the_file_unchanged(tmp_path):
     target = tmp_path / "usrec.csv"
     data.save_usrec(target, url=source.as_uri())
     assert target.read_bytes() == source.read_bytes()
+    assert list(data.fetch_usrec(url=source.as_uri())) == [0]
+
+
+def test_usrec_download_rejects_a_page_that_is_not_the_csv(tmp_path):
+    page = tmp_path / "maintenance.html"
+    page.write_bytes(b"<!doctype html>\n<title>Site Maintenance</title>\n")
+    target = tmp_path / "usrec.csv"
+    with pytest.raises(RuntimeError, match="did not return"):
+        data.save_usrec(target, url=page.as_uri())
+    assert not target.exists()
+    with pytest.raises(RuntimeError, match="did not return"):
+        data.fetch_usrec(url=page.as_uri())
 
 
 def test_fetch_runs_the_query_and_processes_it(monkeypatch):

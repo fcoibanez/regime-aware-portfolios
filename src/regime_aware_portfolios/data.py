@@ -8,6 +8,7 @@ columns of :data:`CRSP_COLUMNS`, indexed by month-end date and PERMNO.
 
 from __future__ import annotations
 
+import io
 import urllib.request
 from importlib import resources
 from pathlib import Path
@@ -195,23 +196,30 @@ def _with_schema(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------- recessions
 
 
-def fetch_usrec(url: str = USREC_URL) -> pd.Series:
+def fetch_usrec(url: str = USREC_URL, timeout: float = 30.0) -> pd.Series:
     """NBER recession indicator (FRED series USREC), one value per month.
 
     1 in months of recession, from the month after a business-cycle peak through
     the trough, and 0 otherwise. Dated at the first day of the month, as on FRED.
     """
-    return read_usrec(url)
+    return read_usrec(io.BytesIO(_download_usrec(url, timeout)))
 
 
 def save_usrec(path: str | Path, url: str = USREC_URL, timeout: float = 30.0) -> None:
     """Download the USREC series and store FRED's CSV file unchanged."""
+    Path(path).write_bytes(_download_usrec(url, timeout))
+
+
+def _download_usrec(url: str, timeout: float) -> bytes:
     request = urllib.request.Request(
         url, headers={"User-Agent": "regime-aware-portfolios"}
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
         raw = response.read()
-    Path(path).write_bytes(raw)
+    # FRED answers with an HTML page, not an error, when the site is down.
+    if not raw.lstrip().lower().startswith(b"observation_date"):
+        raise RuntimeError(f"{url} did not return the USREC CSV file; try again later")
+    return raw
 
 
 def read_usrec(source) -> pd.Series:
