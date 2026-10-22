@@ -46,10 +46,13 @@ The stages run in order from the repository's root folder. Each writes a
 | 1. Inputs | `python scripts/01_data.py` | `data/derived/` |
 | 2. Regime model | `python scripts/02_regimes.py --config config/<study>.toml` | `results/<study>/regimes/` |
 | 3. Calibration | `python scripts/03_calibrate.py --config config/<study>.toml` | `results/<study>/calibration/` |
+| 4. Simulation | `python scripts/04_simulate.py --config config/<study>.toml` | `results/<study>/simulation/` |
 
 Stage 1 needs the CRSP extract, which is licensed and not included; see
 [data/README.md](data/README.md) for how to download it from WRDS. Stage 2 and
-later stages run once per study, `main` by default.
+later stages run once per study, `main` by default. Simulated paths are not
+stored: each is generated from the study's seed and its number, in a few
+milliseconds, by `regime_aware_portfolios.simulation.simulate_path`.
 
 ## Status
 
