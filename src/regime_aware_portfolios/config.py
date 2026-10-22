@@ -61,17 +61,43 @@ class SampleConfig:
 
 
 @dataclass(frozen=True)
+class CalibrationConfig:
+    loading_eigen_floor: float
+    resid_eigen_floor: float
+    min_resid_dof: float
+
+    def __post_init__(self) -> None:
+        _require(
+            self.loading_eigen_floor > 0 and self.resid_eigen_floor > 0,
+            "calibration eigenvalue floors must be positive",
+        )
+        _require(self.min_resid_dof > 0, "calibration.min_resid_dof must be positive")
+
+
+@dataclass(frozen=True)
 class RegimeConfig:
     n_regimes: int
     n_starts: int
     selection: str
+    order_by: str
+    reference: dict[str, tuple[float, ...]] = dataclasses.field(default_factory=dict)
 
     def __post_init__(self) -> None:
         _require(self.n_regimes >= 1, "regimes.n_regimes must be positive")
         _require(self.n_starts >= 1, "regimes.n_starts must be positive")
         _require(
-            self.selection in ("best", "modal"),
-            "regimes.selection must be 'best' or 'modal'",
+            self.selection in ("best", "modal", "nearest"),
+            "regimes.selection must be 'best', 'modal' or 'nearest'",
+        )
+        reference = {k: tuple(v) for k, v in self.reference.items()}
+        object.__setattr__(self, "reference", reference)
+        _require(
+            (self.selection == "nearest") == bool(reference),
+            "regimes.reference is required with selection 'nearest', and only then",
+        )
+        _require(
+            all(len(v) == self.n_regimes for v in reference.values()),
+            "regimes.reference must give one mean per regime for each factor",
         )
 
 
@@ -195,6 +221,7 @@ class StudyConfig:
     name: str
     data: DataConfig
     sample: SampleConfig
+    calibration: CalibrationConfig
     regimes: RegimeConfig
     regime_selection: RegimeSelectionConfig
     simulation: SimulationConfig
@@ -205,12 +232,36 @@ class StudyConfig:
     solver: SolverConfig
     source: Path = dataclasses.field(compare=False, default=Path())
 
+    def __post_init__(self) -> None:
+        factors = self.factor_names
+        _require(
+            self.regimes.order_by in factors,
+            f"regimes.order_by must be one of the factors {factors}",
+        )
+        _require(
+            not self.regimes.reference or set(self.regimes.reference) == set(factors),
+            f"regimes.reference must give the means of the factors {factors}",
+        )
+
+    @property
+    def factor_names(self) -> list[str]:
+        """The factors of ``data.factor_model``, as named in French's files."""
+        return [
+            c for _, cols in rwls.factors.MODELS[self.data.factor_model] for c in cols
+        ]
+
     def regime_settings(self, **overrides) -> rwls.RegimeSettings:
-        """Settings of the regime model: rwls defaults with the study's choices."""
+        """Settings of the regime model: rwls defaults with the study's choices.
+
+        With ``selection = "nearest"`` the starts are fitted one by one and the
+        choice is made by :func:`regime_aware_portfolios.regimes.fit_regimes`, so
+        the rwls rule is left at its default.
+        """
+        selection = self.regimes.selection
         base = rwls.RegimeSettings(
             n_regimes=self.regimes.n_regimes,
             n_starts=self.regimes.n_starts,
-            selection=self.regimes.selection,
+            selection="best" if selection == "nearest" else selection,
             seed=self.seeds.regimes,
         )
         return base.replace(**overrides) if overrides else base
@@ -221,7 +272,7 @@ class StudyConfig:
         return base.replace(**overrides) if overrides else base
 
     def as_dict(self) -> dict[str, Any]:
-        """The configuration as plain values, for run manifests."""
+        """The configuration as plain values, for run records."""
         out = dataclasses.asdict(self)
         out["source"] = str(self.source)
         return out
@@ -230,6 +281,7 @@ class StudyConfig:
 _SECTIONS = {
     "data": DataConfig,
     "sample": SampleConfig,
+    "calibration": CalibrationConfig,
     "regimes": RegimeConfig,
     "regime_selection": RegimeSelectionConfig,
     "simulation": SimulationConfig,
@@ -274,8 +326,13 @@ def _read(path: Path, seen: tuple[Path, ...] = ()) -> dict[str, Any]:
 
 def _build(cls, values: dict[str, Any], where: str):
     fields = {f.name: f for f in dataclasses.fields(cls)}
+    required = {
+        name
+        for name, f in fields.items()
+        if f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING
+    }
     unknown = set(values) - set(fields)
-    missing = set(fields) - set(values)
+    missing = required - set(values)
     _require(not unknown, f"{where}: unknown key(s) {sorted(unknown)}")
     _require(not missing, f"{where}: missing key(s) {sorted(missing)}")
     converted = {k: tuple(v) if isinstance(v, list) else v for k, v in values.items()}

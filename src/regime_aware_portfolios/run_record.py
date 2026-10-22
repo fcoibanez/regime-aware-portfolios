@@ -1,6 +1,6 @@
 """Records of how each stage's results were produced.
 
-Every stage writes a ``manifest.json`` next to its results with the configuration,
+Every stage writes a ``run.json`` next to its results with the configuration,
 the commit of the code, the versions of Python and the packages that compute, and
 anything else the stage reports.
 """
@@ -19,7 +19,13 @@ from typing import Any
 from regime_aware_portfolios.config import StudyConfig
 from regime_aware_portfolios.paths import ROOT
 
-__all__ = ["PACKAGES", "environment", "git_commit", "write_manifest"]
+__all__ = [
+    "PACKAGES",
+    "check_upstream",
+    "environment",
+    "git_commit",
+    "write_run_record",
+]
 
 #: Packages whose versions are recorded.
 PACKAGES = (
@@ -64,15 +70,15 @@ def environment() -> dict[str, Any]:
     }
 
 
-def write_manifest(
+def write_run_record(
     path: str | Path, stage: str, config: StudyConfig, **sections: Any
 ) -> dict[str, Any]:
-    """Write the manifest of a stage's run and return it.
+    """Write the record of a stage's run and return it.
 
     Parameters
     ----------
     path : path-like
-        File to write, usually ``manifest.json`` in the stage's output folder.
+        File to write, usually ``run.json`` in the stage's output folder.
     stage : str
         Name of the stage, such as ``"01_data"``.
     config : StudyConfig
@@ -92,6 +98,28 @@ def write_manifest(
     Path(path).write_text(
         json.dumps(record, indent=2, default=str) + "\n", encoding="utf-8"
     )
+    return record
+
+
+def check_upstream(
+    path: str | Path, config: StudyConfig, sections: tuple[str, ...]
+) -> dict[str, Any]:
+    """Stop unless an earlier stage ran with the same settings in ``sections``.
+
+    Reads the record at ``path``, written by an earlier stage, and compares
+    the named sections of its configuration with those of ``config``. Returns the
+    record.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise SystemExit(f"{path} not found; run the earlier stage first")
+    record = json.loads(path.read_text(encoding="utf-8"))
+    current = json.loads(json.dumps(config.as_dict(), default=str))
+    for section in sections:
+        if record["config"][section] != current[section]:
+            raise SystemExit(
+                f"{record['stage']} ran with different [{section}] settings; rerun it"
+            )
     return record
 
 

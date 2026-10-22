@@ -64,7 +64,7 @@ December 2024 (`start` and `end` in the `[data]` section of the configuration):
 | `stocks.parquet` | Excess return (delisting-adjusted return less the Treasury bill rate) and market value in thousands of dollars, by month and PERMNO. Stock-months without a return are kept with their market value. |
 | `factors.parquet` | The factors of the model named in the configuration, and the Treasury bill rate `RF`. |
 | `usrec.parquet` | The recession indicator, dated at month ends. |
-| `manifest.json` | The configuration, code commit, package versions and a summary of the run. |
+| `run.json` | The configuration, code commit, package versions and a summary of the run. |
 
 ## Terms of use
 

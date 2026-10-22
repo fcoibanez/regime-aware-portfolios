@@ -7,7 +7,7 @@ data/derived:
     stocks.parquet    excess return and market value of every stock and month
     factors.parquet   factor returns and the risk-free rate
     usrec.parquet     NBER recession indicator
-    manifest.json     configuration and package versions of this run
+    run.json          configuration and package versions of this run
 
 All three cover the months from [data] start to end of the configuration.
 
@@ -31,8 +31,8 @@ import pandas as pd
 import rwls
 
 from regime_aware_portfolios import data, load_config
-from regime_aware_portfolios.manifest import write_manifest
 from regime_aware_portfolios.paths import CONFIG, CRSP, DERIVED, FRENCH, RAW, USREC
+from regime_aware_portfolios.run_record import write_run_record
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -101,8 +101,8 @@ def main(argv: list[str] | None = None) -> None:
         "factors": [c for c in factors.columns if c != "RF"],
         "recession_months": int(usrec.sum()),
     }
-    write_manifest(
-        DERIVED / "manifest.json",
+    write_run_record(
+        DERIVED / "run.json",
         "01_data",
         cfg,
         crsp={"downloaded": bool(args.wrds), "rows": len(crsp)},

@@ -15,10 +15,16 @@ crsp_end = "2024-12"
 coverage = 0.99                   # keep the largest stocks making up this share of market value, each month
 min_history = 120                 # months of continuous returns a stock needs
 
+[calibration]
+loading_eigen_floor = 1e-4        # smallest eigenvalue of each factor's loading covariance block
+resid_eigen_floor = 1e-3          # smallest eigenvalue of the log residual-variance covariance
+min_resid_dof = 5                 # effective degrees of freedom per regime to enter the residual model
+
 [regimes]
 n_regimes = 3
 n_starts = 1000                   # cold starts of the calibrating model
-selection = "modal"               # keep the model reached by the most starts
+selection = "best"                # keep the highest likelihood reached from them
+order_by = "Mkt-RF"               # regimes numbered by this factor's volatility, calmest first
 
 [regime_selection]                # Figure 1
 n_regimes = [1, 2, 3, 4, 5, 6, 7, 8]
