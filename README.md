@@ -39,14 +39,17 @@ produced with Python 3.13.
 ## Running
 
 The stages run in order from the repository's root folder. Each writes a
-`manifest.json` next to its results.
+`run.json` next to its results.
 
 | Stage | Command | Writes |
 |---|---|---|
 | 1. Inputs | `python scripts/01_data.py` | `data/derived/` |
+| 2. Regime model | `python scripts/02_regimes.py --config config/<study>.toml` | `results/<study>/regimes/` |
+| 3. Calibration | `python scripts/03_calibrate.py --config config/<study>.toml` | `results/<study>/calibration/` |
 
 Stage 1 needs the CRSP extract, which is licensed and not included; see
-[data/README.md](data/README.md) for how to download it from WRDS.
+[data/README.md](data/README.md) for how to download it from WRDS. Stage 2 and
+later stages run once per study, `main` by default.
 
 ## Status
 
