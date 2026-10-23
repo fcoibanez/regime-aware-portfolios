@@ -146,7 +146,7 @@ def _same_optimum(fit, other, scale, settings) -> bool:
 class RegimeParameters:
     """A fitted regime model as stored: parameters and posterior probabilities.
 
-    Regimes are labelled 1 to M in every table. ``covariances[0]`` is regime 1.
+    Regimes are labeled 1 to M in every table. ``covariances[0]`` is regime 1.
     """
 
     factor_names: list[str]

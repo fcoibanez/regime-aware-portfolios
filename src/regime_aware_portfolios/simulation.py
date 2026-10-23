@@ -43,7 +43,7 @@ __all__ = [
 
 @dataclass(frozen=True)
 class DataGeneratingProcess:
-    """Parameters of the simulation, regimes labelled 1 to M.
+    """Parameters of the simulation, regimes labeled 1 to M.
 
     Factor means and volatilities have one row per regime. Loadings are ordered
     by factor, then regime, as in :class:`Calibration`.
@@ -113,7 +113,7 @@ class DataGeneratingProcess:
 class SimulatedPath:
     """One simulated path.
 
-    ``states`` holds the regime of every period, labelled 1 to M. ``loadings``
+    ``states`` holds the regime of every period, labeled 1 to M. ``loadings``
     has shape (stocks, factors, regimes) and ``resid_vol`` (stocks, regimes).
     """
 
