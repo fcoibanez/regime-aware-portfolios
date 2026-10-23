@@ -17,6 +17,7 @@ dependencies = [
     "pandas",
     "scipy",
     "joblib",
+    "hmmlearn",
     "cvxpy",
     "pyarrow",
     "matplotlib",
