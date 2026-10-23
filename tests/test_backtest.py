@@ -106,3 +106,18 @@ def test_failures_name_the_strategy_date_and_risk_aversion(cfg, path, monkeypatc
     monkeypatch.setattr(backtest, "portfolio", fail)
     with pytest.raises(OptimizationError, match="agnostic, date 149, risk aversion 1"):
         backtest_path(study_strategies(cfg)["agnostic"], path, cfg)
+
+
+def test_regime_strategies_record_their_probabilities(cfg, path, tmp_path):
+    s = study_strategies(cfg)
+    res = backtest_path(s["framework"], path, cfg)
+    assert res.filtered.shape == (4, 2) and res.forecast.shape == (4, 2)
+    assert res.regime_means.shape == (4, 2, 2)
+    np.testing.assert_allclose(res.filtered.sum(axis=1), 1.0)
+    np.testing.assert_allclose(res.forecast.sum(axis=1), 1.0)
+    save_result(res, tmp_path / "f.npz")
+    np.testing.assert_array_equal(
+        load_result(tmp_path / "f.npz").forecast, res.forecast
+    )
+    agnostic = backtest_path(s["agnostic"], path, cfg)
+    assert agnostic.filtered is None and agnostic.regime_means is None

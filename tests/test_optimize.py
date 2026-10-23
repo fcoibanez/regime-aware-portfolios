@@ -145,4 +145,4 @@ def test_unsolved_problems_raise(monkeypatch):
     monkeypatch.setattr(cp.Problem, "solve", always_fails)
     with pytest.raises(OptimizationError, match="no statement"):
         mixture_portfolio(10, mo)
-    assert len(optimize.ATTEMPTS["CLARABEL"]["mixture"]) == 4
+    assert len(optimize.ATTEMPTS["CLARABEL"]["mixture"]) == 9

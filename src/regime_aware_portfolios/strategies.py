@@ -151,12 +151,20 @@ def study_strategies(cfg: StudyConfig) -> dict[str, Strategy]:
 
 @dataclass(frozen=True)
 class Decision:
-    """The inputs of one decision: the date and the moments or returns used."""
+    """The inputs of one decision: the date and the moments or returns used.
+
+    For strategies with a regime model, ``filtered`` holds the probability of
+    each regime at the decision date given the data up to it, and
+    ``regime_means`` the regime model's factor means (one row per regime), from
+    which estimated regimes can be matched to the true ones.
+    """
 
     date: int
     moments: MixtureMoments | None = None
     returns: np.ndarray | None = None
     n_assets: int = 0
+    filtered: np.ndarray | None = None
+    regime_means: np.ndarray | None = None
 
 
 def decision_dates(cfg: StudyConfig) -> range:
@@ -254,7 +262,11 @@ def _estimated(strategy, factors, returns, cfg, dates) -> Iterator[Decision]:
                 factors.iloc[: d + 1].to_numpy(), weights, full=True
             )
         yield Decision(
-            d, moments=_mixture(results, probs, fm, fc), n_assets=returns.shape[1]
+            d,
+            moments=_mixture(results, probs, fm, fc),
+            n_assets=returns.shape[1],
+            filtered=step.regimes.posteriors.to_numpy()[-1],
+            regime_means=step.regimes.means.to_numpy(),
         )
 
 
@@ -281,6 +293,8 @@ def _oracle(strategy, factors, returns, cfg, dates, dgp) -> Iterator[Decision]:
             d,
             moments=_mixture(results, probs, dgp.factor_means, true_covs),
             n_assets=returns.shape[1],
+            filtered=post.to_numpy()[-1],
+            regime_means=dgp.factor_means,
         )
 
 

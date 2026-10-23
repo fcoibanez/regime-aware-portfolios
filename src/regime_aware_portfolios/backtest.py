@@ -16,7 +16,7 @@ solved. The full weights are kept only when asked for.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from functools import lru_cache
 from pathlib import Path
 
@@ -56,6 +56,11 @@ class PathResult:
     Arrays have one row per level of risk aversion (in the order of ``phis``)
     and one column per decision date (in the order of ``dates``). ``weights``,
     when kept, has shape (risk aversions, dates, stocks).
+
+    Strategies with a regime model also record, at every decision date, the
+    filtered probabilities ``filtered`` and forecast probabilities ``forecast``
+    of each regime (dates, regimes), and the regime model's factor means
+    ``regime_means`` (dates, regimes, factors).
     """
 
     phis: np.ndarray
@@ -66,6 +71,9 @@ class PathResult:
     effective_holdings: np.ndarray
     attempts: np.ndarray
     weights: np.ndarray | None = None
+    filtered: np.ndarray | None = None
+    forecast: np.ndarray | None = None
+    regime_means: np.ndarray | None = None
 
 
 def backtest_path(
@@ -87,8 +95,13 @@ def backtest_path(
     W = np.empty((len(phis), len(dates), n_stocks))
     attempts = np.zeros((len(phis), len(dates)), dtype=np.int8)
     solver = cfg.solver.name
+    filtered, forecast, regime_means = [], [], []
 
     for j, dec in enumerate(decisions(strategy, path.factors, path.returns, cfg, dgp)):
+        if dec.filtered is not None:
+            filtered.append(dec.filtered)
+            forecast.append(dec.moments.probs)
+            regime_means.append(dec.regime_means)
         if strategy.depends_on_risk_aversion:
             for i, phi in enumerate(phis):
                 port = _solve(strategy, dec, phi, solver)
@@ -109,6 +122,9 @@ def backtest_path(
         effective_holdings=effective_holdings(W, threshold),
         attempts=attempts,
         weights=W.astype(np.float32) if keep_weights else None,
+        filtered=np.array(filtered) if filtered else None,
+        forecast=np.array(forecast) if forecast else None,
+        regime_means=np.array(regime_means) if regime_means else None,
     )
 
 
@@ -209,19 +225,10 @@ def save_result(result: PathResult, file: str | Path) -> None:
     file = Path(file)
     file.parent.mkdir(parents=True, exist_ok=True)
     arrays = {
-        name: getattr(result, name)
-        for name in (
-            "phis",
-            "dates",
-            "returns",
-            "turnover",
-            "holdings",
-            "effective_holdings",
-            "attempts",
-        )
+        f.name: getattr(result, f.name)
+        for f in fields(PathResult)
+        if getattr(result, f.name) is not None
     }
-    if result.weights is not None:
-        arrays["weights"] = result.weights
     partial = file.with_name(file.stem + ".partial.npz")
     np.savez_compressed(partial, **arrays)
     partial.replace(file)
@@ -230,7 +237,4 @@ def save_result(result: PathResult, file: str | Path) -> None:
 def load_result(file: str | Path) -> PathResult:
     """Read a result stored by :func:`save_result`."""
     with np.load(file) as d:
-        return PathResult(
-            **{k: d[k] for k in d.files if k != "weights"},
-            weights=d["weights"] if "weights" in d.files else None,
-        )
+        return PathResult(**{k: d[k] for k in d.files})

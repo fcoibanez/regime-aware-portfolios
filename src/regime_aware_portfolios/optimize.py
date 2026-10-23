@@ -43,7 +43,11 @@ __all__ = [
 #: Statements of a problem tried in order, per solver and kind of problem: a
 #: multiplier of the objective and solver settings. The orders were chosen on
 #: the problems of the study's earlier code (10 paths, 60 dates, five levels of
-#: risk aversion), on which they leave no problem unsolved.
+#: risk aversion), on which they leave no problem unsolved. The last five
+#: mixture statements were added, in turn, for two problems of the full studies
+#: that the statements before them failed on (both at the lowest risk aversion);
+#: each problem has the same solution in every statement that solves it. Being
+#: last, they change no solution the earlier statements reach.
 ATTEMPTS = {
     "CLARABEL": {
         "mixture": (
@@ -51,6 +55,11 @@ ATTEMPTS = {
             (100.0, {}),
             (1.0, {"max_step_fraction": 0.9}),
             (10.0, {}),
+            (1.0, {}),
+            (1000.0, {}),
+            (10.0, {"max_step_fraction": 0.5}),
+            (1.0, {"equilibrate_enable": False}),
+            (1.0, {"max_step_fraction": 0.5}),
         ),
         "quadratic": (
             (1.0, {}),
