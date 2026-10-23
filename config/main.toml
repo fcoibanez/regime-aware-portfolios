@@ -67,3 +67,6 @@ name = "CLARABEL"
 [backtest]
 holdings_threshold = 1e-4         # weights below this do not count as holdings
 weights_paths = 10                # paths whose full weights are stored, for inspection
+
+[exhibits]
+regime_labels = ["Value", "Growth", "Turbulence"]   # names in tables and figures

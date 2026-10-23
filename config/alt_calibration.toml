@@ -16,3 +16,6 @@ HML = [-0.09, -2.21, 2.63]
 RMW = [0.27, -1.16, 0.81]
 CMA = [-0.06, -2.07, 2.26]
 Mom = [0.98, -2.95, 0.63]
+
+[exhibits]
+regime_labels = ["Bull", "Reversal", "Bear"]

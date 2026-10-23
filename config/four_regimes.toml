@@ -6,3 +6,6 @@ name = "four_regimes"
 
 [regimes]
 n_regimes = 4
+
+[exhibits]
+regime_labels = []                # numbered

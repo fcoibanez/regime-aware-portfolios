@@ -48,6 +48,10 @@ The stages run in order from the repository's root folder. Each writes a
 | 3. Calibration | `python scripts/03_calibrate.py --config config/<study>.toml` | `results/<study>/calibration/` |
 | 4. Simulation | `python scripts/04_simulate.py --config config/<study>.toml` | `results/<study>/simulation/` |
 | 5. Backtests | `python scripts/05_backtest.py --config config/<study>.toml` | `results/<study>/backtest/` |
+| 6. Performance statistics | `python scripts/06_metrics.py --config config/<study>.toml` | `results/<study>/metrics/` |
+| 7. Inference | `python scripts/07_inference.py --config config/<study>.toml` | `results/<study>/inference/` |
+| 8. Number of regimes | `python scripts/08_regime_selection.py` (and `--costa-kwon`) | `results/main/regime_selection/` |
+| 9. Recovery of the loadings | `python scripts/09_recovery.py` | `results/main/recovery/` |
 
 Stage 1 needs the CRSP extract, which is licensed and not included; see
 [data/README.md](data/README.md) for how to download it from WRDS. Stage 2 and
@@ -55,10 +59,37 @@ later stages run once per study, `main` by default. Simulated paths are not
 stored: each is generated from the study's seed and its number, in a few
 milliseconds, by `regime_aware_portfolios.simulation.simulate_path`.
 
-## Status
+The studies are `main`, `alt_calibration` and `four_regimes`. Stages 2 to 7
+run for each; stages 8 and 9 for `main` only. Stage 5 is the long one, about an
+hour per study on a 32-thread processor, and can be resumed: it skips the
+backtests already on disk.
 
-Under construction. The stages, notebooks and the map from each exhibit to the
-code that produces it will be added here as they are completed.
+## Tables and figures
+
+Each notebook in `notebooks/` reads the results of the stages and writes
+exhibits to `output/tables` and `output/figures`, under the file names the paper
+uses. The notebooks are Python files in the percent format of
+[jupytext](https://jupytext.readthedocs.io); they run as scripts, or open as
+notebooks once jupytext is installed (`pip install -e .[notebooks]`).
+
+| Exhibit | Notebook | Output | Stages |
+|---|---|---|---|
+| Table 1, regime model | `regime_model.py` | `tables/regime_model.tex` | 2 |
+| Figure 1, number of regimes | `regime_selection.py` | `figures/state_calibration.pdf`, `tables/state_selection.tex` | 8 |
+| Figure 2, regimes and recessions | `regime_timeline.py` | `figures/regime_timeline.pdf` | 1, 2 |
+| Figure 3, recovery of the loadings | `recovery.py` | `figures/recovery_<factor>.pdf` | 9 |
+| Figure 4, Sharpe ratios across paths | `performance.py` | `figures/benchmark_ecdf.pdf` | 6 |
+| Table 2, performance | `performance.py` | `tables/performance.tex` | 6 |
+| Table 3, significance and costs | `significance.py` | `tables/significance.tex`, `tables/detection_horizon.tex` | 7 |
+| Table 4, design choices | `decomposition.py` | `tables/decomposition.tex`, `tables/objective.tex` | 6 |
+| Table 5, regime-conditional performance | `regime_conditional.py` | `tables/regime_conditional.tex`, `tables/forecast_quality.tex` | 7 |
+| Online Appendix A, alternative calibration | `regime_model.py`, `performance.py`, `significance.py` | `tables/appendix/alt_*.tex` | 2 to 7 |
+| Online Appendix B, four regimes | `regime_model.py`, `performance.py`, `significance.py`, `decomposition.py` | `tables/appendix/m4_*.tex` | 2 to 7 |
+| Online Appendix, momentum crashes | `regime_model.py` | `tables/appendix/momentum_crashes.tex` | 2 |
+| Online Appendix, trading costs | `costs.py` | `figures/cost_sensitivity.pdf` | 1, 6 |
+| Online Appendix, paired tests of every measure | `significance.py` | `tables/appendix/significance_{agnostic,ew}.tex` | 6 |
+| Online Appendix, rolling window | `rolling_window.py` | `figures/rolling_window_sensitivity.pdf` | 6 |
+| Numbers quoted in the text | `quoted_numbers.py` | `numbers.tex` | all |
 
 ## License
 

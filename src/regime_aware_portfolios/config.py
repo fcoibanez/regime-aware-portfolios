@@ -228,6 +228,11 @@ class BacktestConfig:
 
 
 @dataclass(frozen=True)
+class ExhibitConfig:
+    regime_labels: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class StudyConfig:
     """All parameters of one study (main text or an appendix)."""
 
@@ -244,6 +249,7 @@ class StudyConfig:
     seeds: SeedConfig
     solver: SolverConfig
     backtest: BacktestConfig
+    exhibits: ExhibitConfig = ExhibitConfig()
     source: Path = dataclasses.field(compare=False, default=Path())
 
     def __post_init__(self) -> None:
@@ -256,6 +262,18 @@ class StudyConfig:
             not self.regimes.reference or set(self.regimes.reference) == set(factors),
             f"regimes.reference must give the means of the factors {factors}",
         )
+
+    @property
+    def regime_labels(self) -> list[str]:
+        """Names of the regimes in tables and figures; numbered if none are given."""
+        labels = self.exhibits.regime_labels
+        _require(
+            not labels or len(labels) == self.regimes.n_regimes,
+            "exhibits.regime_labels must name every regime, or none",
+        )
+        return list(labels) or [
+            f"Regime {s}" for s in range(1, self.regimes.n_regimes + 1)
+        ]
 
     @property
     def factor_names(self) -> list[str]:
@@ -306,19 +324,22 @@ _SECTIONS = {
     "solver": SolverConfig,
     "backtest": BacktestConfig,
 }
+_OPTIONAL = {"exhibits": ExhibitConfig}
 
 
 def load_config(path: str | Path) -> StudyConfig:
     """Read, merge and validate a study configuration file."""
     path = Path(path)
     raw = _read(path)
-    unknown = set(raw) - set(_SECTIONS) - {"name"}
+    unknown = set(raw) - set(_SECTIONS) - set(_OPTIONAL) - {"name"}
     _require(not unknown, f"{path.name}: unknown section(s) {sorted(unknown)}")
     _require("name" in raw, f"{path.name}: missing 'name'")
     sections = {}
     for key, cls in _SECTIONS.items():
         _require(key in raw, f"{path.name}: missing section [{key}]")
         sections[key] = _build(cls, raw[key], f"{path.name} [{key}]")
+    for key, cls in _OPTIONAL.items():
+        sections[key] = _build(cls, raw.get(key, {}), f"{path.name} [{key}]")
     return StudyConfig(name=raw["name"], source=path, **sections)
 
 
