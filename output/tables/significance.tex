@@ -1,0 +1,36 @@
+\begin{tabular*}{\textwidth}{l@{\extracolsep{\fill}}rrrrrr}
+\toprule
+ & RWLS & Agnostic & Roll. OLS & $1/N$ & Min. Var. & C\&K \\
+\midrule
+\multicolumn{7}{l}{\textit{$\varphi = 10$}} \\
+\midrule
+Sharpe (gross) & 1.09 & 1.03 & 0.56 & 0.57 & 0.53 & 0.61 \\
+Sharpe (net) & 1.05 & 1.02 & 0.54 & 0.57 & 0.52 & 0.57 \\
+Cost drag & 0.04 & 0.00 & 0.03 & 0.01 & 0.01 & 0.04 \\
+$\Delta$ Sharpe (net) & -- & 0.031\rlap{$^{***}$}\phantom{$^{***}$} & 0.515\rlap{$^{***}$}\phantom{$^{***}$} & 0.487\rlap{$^{***}$}\phantom{$^{***}$} & 0.528\rlap{$^{***}$}\phantom{$^{***}$} & 0.484\rlap{$^{***}$}\phantom{$^{***}$} \\
+t-stat & -- & 5.86 & 45.81 & 52.05 & 49.19 & 41.64 \\
+LW reject 5\% & -- & 5.2\% & 27.9\% & 36.7\% & 35.2\% & 25.6\% \\
+\midrule
+\multicolumn{7}{l}{\textit{$\varphi = 25$}} \\
+\midrule
+Sharpe (gross) & 0.96 & 0.92 & 0.62 & 0.57 & 0.53 & 0.67 \\
+Sharpe (net) & 0.92 & 0.91 & 0.59 & 0.57 & 0.52 & 0.63 \\
+Cost drag & 0.03 & 0.01 & 0.03 & 0.01 & 0.01 & 0.04 \\
+$\Delta$ Sharpe (net) & -- & 0.009\rlap{$^{**}$}\phantom{$^{***}$} & 0.332\rlap{$^{***}$}\phantom{$^{***}$} & 0.358\rlap{$^{***}$}\phantom{$^{***}$} & 0.399\rlap{$^{***}$}\phantom{$^{***}$} & 0.294\rlap{$^{***}$}\phantom{$^{***}$} \\
+t-stat & -- & 2.29 & 32.06 & 38.00 & 51.78 & 29.23 \\
+LW reject 5\% & -- & 6.1\% & 18.0\% & 25.2\% & 42.5\% & 16.7\% \\
+\midrule
+\multicolumn{7}{l}{\textit{$\varphi = 50$}} \\
+\midrule
+Sharpe (gross) & 0.75 & 0.77 & 0.63 & 0.57 & 0.53 & 0.67 \\
+Sharpe (net) & 0.73 & 0.77 & 0.60 & 0.57 & 0.52 & 0.63 \\
+Cost drag & 0.02 & 0.01 & 0.03 & 0.01 & 0.01 & 0.04 \\
+$\Delta$ Sharpe (net) & -- & -0.040\rlap{$^{***}$}\phantom{$^{***}$} & 0.126\rlap{$^{***}$}\phantom{$^{***}$} & 0.162\rlap{$^{***}$}\phantom{$^{***}$} & 0.203\rlap{$^{***}$}\phantom{$^{***}$} & 0.096\rlap{$^{***}$}\phantom{$^{***}$} \\
+t-stat & -- & -12.15 & 12.70 & 16.59 & 39.08 & 10.65 \\
+LW reject 5\% & -- & 7.7\% & 7.6\% & 10.2\% & 28.9\% & 7.5\% \\
+\bottomrule
+\end{tabular*}
+
+% Costs charged at 0.1242% per unit of two-sided turnover.
+% Tests compare RWLS with the benchmark in each column, on net returns.
+% ***, **, * denote significance of the paired t-test at the 1%, 5% and 10% levels.

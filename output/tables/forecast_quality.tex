@@ -1,0 +1,15 @@
+\begin{tabular*}{\textwidth}{l@{\extracolsep{\fill}}rrrr}
+\multicolumn{5}{c}{\textit{Panel B: Quality of the regime probabilities}} \\
+\midrule
+ & Hit rate & Constant forecast & Brier score & Brier skill \\
+\midrule
+Nowcast, known parameters & 0.912 & 0.375 & 0.130 & 0.802 \\
+Nowcast, estimated & 0.857 & 0.375 & 0.233 & 0.647 \\
+One-step forecast, known parameters & 0.562 & 0.376 & 0.566 & 0.143 \\
+One-step forecast, estimated & 0.533 & 0.376 & 0.597 & 0.095 \\
+\bottomrule
+\end{tabular*}
+
+% Scored against the realized regime over all simulated paths.
+% The constant forecast always predicts the most frequent state; it is reported as the hit rate that forecast attains.
+% The Brier skill score is measured against a constant forecast of each state's frequency over the scored periods.

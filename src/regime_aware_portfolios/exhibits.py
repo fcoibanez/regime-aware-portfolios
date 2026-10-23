@@ -155,7 +155,7 @@ PERFORMANCE_ROWS: tuple[tuple[str, str, Callable[[float], str]], ...] = (
     ("Ann. Excess Return", "Ann. Excess Return", percent),
     ("Ann. Std. Deviation", "Ann. Std. Deviation", percent),
     ("Skewness", "Skewness", number),
-    ("Kurtosis", "Excess Kurtosis", number),
+    ("Excess Kurtosis", "Excess Kurtosis", number),
     ("Sharpe Ratio", "Sharpe Ratio", number),
     ("Certainty Equivalent", "Certainty Equivalent", percent),
     ("Max. Drawdown", "Max. Drawdown", percent),
