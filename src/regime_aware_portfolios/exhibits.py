@@ -51,8 +51,8 @@ APPENDIX_PREFIX = {"alt_calibration": "alt", "four_regimes": "m4"}
 DECOMPOSITION_STEPS = (
     ("State count", "costa_kwon", "path_regimes"),
     ("Emission dimension", "path_regimes", "path_factors"),
-    ("Forecast rule", "path_factors", "path_forecast"),
-    ("Factor covariance", "path_forecast", "path_covariance"),
+    ("Probabilistic forecast", "path_factors", "path_forecast"),
+    ("Diagonal factor covariance", "path_forecast", "path_covariance"),
     ("RWLS estimator", "path_covariance", "framework_mvo"),
 )
 
