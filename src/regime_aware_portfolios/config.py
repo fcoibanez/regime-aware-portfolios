@@ -215,6 +215,19 @@ class SolverConfig:
 
 
 @dataclass(frozen=True)
+class BacktestConfig:
+    holdings_threshold: float
+    weights_paths: int
+
+    def __post_init__(self) -> None:
+        _require(
+            0 <= self.holdings_threshold < 1,
+            "backtest.holdings_threshold must be in [0, 1)",
+        )
+        _require(self.weights_paths >= 0, "backtest.weights_paths must be non-negative")
+
+
+@dataclass(frozen=True)
 class StudyConfig:
     """All parameters of one study (main text or an appendix)."""
 
@@ -230,6 +243,7 @@ class StudyConfig:
     inference: InferenceConfig
     seeds: SeedConfig
     solver: SolverConfig
+    backtest: BacktestConfig
     source: Path = dataclasses.field(compare=False, default=Path())
 
     def __post_init__(self) -> None:
@@ -290,6 +304,7 @@ _SECTIONS = {
     "inference": InferenceConfig,
     "seeds": SeedConfig,
     "solver": SolverConfig,
+    "backtest": BacktestConfig,
 }
 
 

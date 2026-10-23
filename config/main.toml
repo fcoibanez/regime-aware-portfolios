@@ -63,3 +63,7 @@ bootstrap = 20261211              # root of the per-path bootstrap streams
 
 [solver]
 name = "CLARABEL"
+
+[backtest]
+holdings_threshold = 1e-4         # weights below this do not count as holdings
+weights_paths = 10                # paths whose full weights are stored, for inspection
