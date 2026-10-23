@@ -19,12 +19,15 @@ import pandas as pd
 __all__ = [
     "CRSP_COLUMNS",
     "adjust_for_delisting",
+    "cap_weighted_half_spread",
     "crsp_query",
     "excess_returns",
     "fetch_crsp_monthly",
     "fetch_usrec",
     "load_crsp",
+    "half_spread",
     "market_value",
+    "quoted_spreads",
     "prepare_crsp",
     "read_usrec",
     "save_crsp",
@@ -137,6 +140,52 @@ def save_crsp(crsp: pd.DataFrame, path: str | Path) -> None:
 def load_crsp(path: str | Path) -> pd.DataFrame:
     """Read the CRSP table from a Parquet file and check its layout."""
     return _with_schema(pd.read_parquet(path))
+
+
+def quoted_spreads(crsp: pd.DataFrame) -> pd.Series:
+    """Relative quoted spread (ask - bid) / midpoint of every valid stock-month.
+
+    This is the full spread, the cost of a round trip. Stock-months are kept
+    when both quotes and the market value are available, the midpoint is
+    positive, and the spread is positive and below 100%.
+    """
+    mid = (crsp["ask"] + crsp["bid"]) / 2
+    spread = (crsp["ask"] - crsp["bid"]) / mid
+    valid = (
+        crsp["bid"].notna()
+        & crsp["ask"].notna()
+        & (mid > 0)
+        & (spread > 0)
+        & (spread < 1)
+        & market_value(crsp).notna()
+    )
+    return spread[valid].rename("spread")
+
+
+def half_spread(crsp: pd.DataFrame, start: str, quantile: float) -> float:
+    """Cost of a one-way trade: half of a quantile of the quoted spreads.
+
+    The quantile is taken over every valid stock-month from ``start`` on,
+    pooled across stocks and months.
+    """
+    spreads = quoted_spreads(crsp)
+    dates = spreads.index.get_level_values("date")
+    first = pd.Period(start, freq="M").start_time
+    return float(spreads[dates >= first].quantile(quantile) / 2)
+
+
+def cap_weighted_half_spread(crsp: pd.DataFrame, start: str) -> float:
+    """Half the quoted spread averaged with market-value weights, from ``start`` on.
+
+    The weights are the market values of the stock-months, pooled across stocks
+    and months. Large stocks have narrow spreads, so this is a lower estimate of
+    the cost than the median, which counts every stock-month alike.
+    """
+    spreads = quoted_spreads(crsp)
+    dates = spreads.index.get_level_values("date")
+    keep = dates >= pd.Period(start, freq="M").start_time
+    weights = market_value(crsp).loc[spreads.index[keep]]
+    return float((spreads[keep] * weights).sum() / weights.sum() / 2)
 
 
 def market_value(crsp: pd.DataFrame) -> pd.Series:

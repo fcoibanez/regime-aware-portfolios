@@ -7,9 +7,13 @@ data/derived:
     stocks.parquet    excess return and market value of every stock and month
     factors.parquet   factor returns and the risk-free rate
     usrec.parquet     NBER recession indicator
+    costs.json        cost of a one-way trade, from the CRSP quoted spreads
     run.json          configuration and package versions of this run
 
-All three cover the months from [data] start to end of the configuration.
+The three tables cover the months from [data] start to end of the configuration.
+The cost is half the [costs] quantile of the quoted spreads of every stock-month
+from [costs] decimalization on. The market-value-weighted mean, a lower estimate,
+is recorded with it for the sensitivity of the results to costs.
 
 Usage:
 
@@ -24,6 +28,7 @@ downloads them again from WRDS, with the user name NAME, and replaces that file.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -90,6 +95,24 @@ def main(argv: list[str] | None = None) -> None:
     stocks.to_parquet(DERIVED / "stocks.parquet")
     usrec.rename("usrec").to_frame().to_parquet(DERIVED / "usrec.parquet")
 
+    spreads = data.quoted_spreads(crsp)
+    after = spreads[
+        spreads.index.get_level_values("date")
+        >= pd.Period(cfg.costs.decimalization, freq="M").start_time
+    ]
+    costs = {
+        "one_way": data.half_spread(crsp, cfg.costs.decimalization, cfg.costs.quantile),
+        "one_way_cap_weighted": data.cap_weighted_half_spread(
+            crsp, cfg.costs.decimalization
+        ),
+        "spread_quantile": cfg.costs.quantile,
+        "from": cfg.costs.decimalization,
+        "stock_months": int(len(after)),
+    }
+    (DERIVED / "costs.json").write_text(
+        json.dumps(costs, indent=2) + "\n", encoding="utf-8"
+    )
+
     permnos = stocks.index.get_level_values("permno")
     summary = {
         "months": len(months),
@@ -100,6 +123,7 @@ def main(argv: list[str] | None = None) -> None:
         "stocks": int(permnos.nunique()),
         "factors": [c for c in factors.columns if c != "RF"],
         "recession_months": int(usrec.sum()),
+        "one_way_cost": costs["one_way"],
     }
     write_run_record(
         DERIVED / "run.json",

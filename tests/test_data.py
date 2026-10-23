@@ -215,3 +215,41 @@ def test_fetch_usrec_from_fred():
     assert set(usrec.unique()) <= {0, 1}
     assert usrec.loc["2008-12-01"] == 1
     assert usrec.loc["2019-06-01"] == 0
+
+
+def _quotes():
+    index = pd.MultiIndex.from_tuples(
+        [
+            (pd.Timestamp("2000-12-29"), 1),  # before the start
+            (pd.Timestamp("2001-01-31"), 1),
+            (pd.Timestamp("2001-01-31"), 2),
+            (pd.Timestamp("2001-02-28"), 1),
+            (pd.Timestamp("2001-02-28"), 2),  # no ask: left out
+            (pd.Timestamp("2001-02-28"), 3),  # crossed quotes: left out
+        ],
+        names=["date", "permno"],
+    )
+    return pd.DataFrame(
+        {
+            "bid": [9.0, 9.9, 19.0, 9.8, 20.0, 10.1],
+            "ask": [11.0, 10.1, 21.0, 10.2, np.nan, 10.0],
+            "shrout": [100.0, 100.0, 300.0, 100.0, 100.0, 100.0],
+            "altprc": [10.0, 10.0, -20.0, 10.0, 20.0, 10.0],
+        },
+        index=index,
+    )
+
+
+def test_quoted_spreads_keep_valid_stock_months():
+    spreads = data.quoted_spreads(_quotes())
+    assert len(spreads) == 4
+    np.testing.assert_allclose(spreads.to_numpy(), [0.2, 0.02, 0.1, 0.04])
+
+
+def test_one_way_costs_are_half_the_spread():
+    crsp = _quotes()
+    # Spreads from 2001: 0.02, 0.10, 0.04; median 0.04.
+    assert data.half_spread(crsp, "2001-01", 0.5) == pytest.approx(0.02)
+    # Market values 1,000, 6,000 and 1,000.
+    expected = (0.02 * 1000 + 0.10 * 6000 + 0.04 * 1000) / 8000 / 2
+    assert data.cap_weighted_half_spread(crsp, "2001-01") == pytest.approx(expected)
