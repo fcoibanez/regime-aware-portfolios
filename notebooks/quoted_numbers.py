@@ -113,9 +113,11 @@ for phi in phis:
         values[f"LWRejectAdverse{name}{w}"] = pct(r["Reject (adverse)"], 1)
 
 detection = pd.read_parquet(study / "inference" / "detection.parquet")
-values["DetectionFiveYears"] = pct(detection["Detection rate"].iloc[0], 1)
-values["DetectionLongest"] = pct(detection["Detection rate"].iloc[-1], 1)
-values["DetectionLongestYears"] = f"{detection['Years'].iloc[-1]:.0f}"
+for benchmark, name in (("agnostic", "Agnostic"), ("costa_kwon", "CostaKwon")):
+    d = detection[detection["benchmark"] == benchmark].sort_values("Months")
+    values[f"Detection{name}FiveYears"] = pct(d["Detection rate"].iloc[0], 1)
+    values[f"Detection{name}Longest"] = pct(d["Detection rate"].iloc[-1], 1)
+values["DetectionLongestYears"] = f"{detection['Years'].max():.0f}"
 
 # %% [markdown]
 # ## Recovery and the regime probabilities

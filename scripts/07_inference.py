@@ -9,8 +9,9 @@ regimes of every path, and writes to results/<study>/inference:
                              and Wolf test rejects on a single path
     ledoit_wolf.parquet      the test on every path
     detection.parquet        rejection rate of the test as histories lengthen,
-                             framework against the regime-agnostic benchmark at
-                             the first reported risk aversion
+                             framework against the regime-agnostic benchmark and
+                             against Costa and Kwon, at the first reported risk
+                             aversion
     forecast_quality.parquet hit rates and Brier scores of the regime
                              probabilities, estimated and with known parameters
     regime_conditional.parquet the framework against the regime-agnostic
@@ -72,6 +73,8 @@ BENCHMARKS = (
     "costa_kwon",
 )
 FRAMEWORK = "framework"
+#: Benchmarks of the detection analysis: the closest and an existing regime model.
+DETECTION = ("agnostic", "costa_kwon")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -148,16 +151,21 @@ def main(argv: list[str] | None = None) -> None:
     # --------------------------------------------- detection by history length
     phi0 = float(reported[0])
     a = [net.loc[(FRAMEWORK, phi0, p)].to_numpy() for p in paths]
-    b = [net.loc[("agnostic", phi0, p)].to_numpy() for p in paths]
-    detection = detection_by_horizon(
-        a,
-        b,
-        inf.detection_multiples,
-        inf.alpha,
-        inf.bootstrap_block,
-        inf.bootstrap_draws,
-        cfg.seeds.bootstrap,
-    )
+    parts = []
+    for benchmark in DETECTION:
+        b = [net.loc[(benchmark, phi0, p)].to_numpy() for p in paths]
+        part = detection_by_horizon(
+            a,
+            b,
+            inf.detection_multiples,
+            inf.alpha,
+            inf.bootstrap_block,
+            inf.bootstrap_draws,
+            cfg.seeds.bootstrap,
+        ).reset_index()
+        part.insert(0, "benchmark", benchmark)
+        parts.append(part)
+    detection = pd.concat(parts, ignore_index=True)
     detection.to_parquet(out / "detection.parquet")
 
     # ------------------------------------------- Table 5: regime probabilities
@@ -249,7 +257,7 @@ def main(argv: list[str] | None = None) -> None:
         .to_string(index=False)
     )
     print(quality.round(3).to_string())
-    print(detection.round(3).to_string())
+    print(detection.round(3).to_string(index=False))
     print(f"Written: {out}")
 
 

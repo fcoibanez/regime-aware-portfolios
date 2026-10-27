@@ -482,24 +482,34 @@ def forecast_quality_table(quality: pd.DataFrame) -> str:
     )
 
 
-def detection_table(detection: pd.DataFrame) -> str:
-    """Rejection rate of the Ledoit and Wolf test as the history lengthens."""
+def detection_table(detection: pd.DataFrame, columns: dict[str, str]) -> str:
+    """Rejection rate of the Ledoit and Wolf test as the history lengthens.
+
+    ``detection`` is ``detection.parquet`` of stage 7, and ``columns`` maps each
+    benchmark to its column heading.
+    """
+    rates = detection.pivot(
+        index="Months", columns="benchmark", values="Detection rate"
+    )
+    years = detection.groupby("Months")["Years"].first()
     lines = [
-        r"\begin{tabular}{lrr}",
+        rf"\begin{{tabular}}{{lr{'r' * len(columns)}}}",
         r"\toprule",
-        r"Months & Years & Detection rate \\",
+        "Months & Years & " + " & ".join(columns.values()) + r" \\",
         r"\midrule",
     ]
-    for months, r in detection.iterrows():
+    for months in rates.index:
+        cells = [percent(rates.loc[months, b], 1) for b in columns]
         lines.append(
-            f"{int(months)} & {r['Years']:.1f} & {percent(r['Detection rate'], 1)} \\\\"
+            f"{int(months)} & {years[months]:.1f} & " + " & ".join(cells) + r" \\"
         )
     lines += [
         r"\bottomrule",
         r"\end{tabular}",
         "",
         "% Share of simulated histories on which the Ledoit-Wolf test rejects"
-        " equality of Sharpe ratios at the 5% level.",
+        " equality of Sharpe ratios at the 5% level, framework against each"
+        " benchmark, returns net of costs.",
     ]
     return "\n".join(lines) + "\n"
 

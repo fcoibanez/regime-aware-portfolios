@@ -12,8 +12,10 @@ data/derived:
 
 The three tables cover the months from [data] start to end of the configuration.
 The cost is half the [costs] quantile of the quoted spreads of every stock-month
-from [costs] decimalization on. The market-value-weighted mean, a lower estimate,
-is recorded with it for the sensitivity of the results to costs.
+from [costs] decimalization on. Two lower estimates are recorded with it for the
+sensitivity of the results to costs: the market-value-weighted mean, and the
+median over the stocks kept by the [sample] coverage filter, the universe the
+simulation is calibrated on.
 
 Usage:
 
@@ -38,6 +40,7 @@ import rwls
 from regime_aware_portfolios import data, load_config
 from regime_aware_portfolios.paths import CONFIG, CRSP, DERIVED, FRENCH, RAW, USREC
 from regime_aware_portfolios.run_record import write_run_record
+from regime_aware_portfolios.sample import market_coverage
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -105,6 +108,7 @@ def main(argv: list[str] | None = None) -> None:
         "one_way_cap_weighted": data.cap_weighted_half_spread(
             crsp, cfg.costs.decimalization
         ),
+        "one_way_coverage_universe": _coverage_half_spread(crsp, after, cfg),
         "spread_quantile": cfg.costs.quantile,
         "from": cfg.costs.decimalization,
         "stock_months": int(len(after)),
@@ -149,6 +153,13 @@ def main(argv: list[str] | None = None) -> None:
 
 def _month(value: str) -> pd.Timestamp:
     return pd.Timestamp(value) + pd.offsets.MonthEnd(0)
+
+
+def _coverage_half_spread(crsp, spreads, cfg) -> float:
+    """Half the median spread over the stock-months kept by the coverage filter."""
+    kept = market_coverage(data.market_value(crsp).dropna(), cfg.sample.coverage)
+    inside = kept.reindex(spreads.index, fill_value=False).to_numpy(dtype=bool)
+    return float(spreads[inside].quantile(cfg.costs.quantile) / 2)
 
 
 if __name__ == "__main__":
