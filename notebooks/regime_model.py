@@ -118,3 +118,25 @@ print(
     f"Mean forecast {crashes['Forecast probability'].mean():.3f}, "
     f"unconditional {forecast[turbulent].mean():.3f}"
 )
+
+# %% [markdown]
+# ## The external checks for the four-regime model (Online Appendix B)
+#
+# Mean posterior probability of each regime inside and outside NBER recessions,
+# and the regime probabilities in the worst months for momentum.
+
+# %%
+four = load_regimes(RESULTS / "four_regimes" / "regimes")
+usrec = pd.read_parquet(DERIVED / "usrec.parquet")["usrec"].reindex(
+    four.posteriors.index
+)
+pd.DataFrame(
+    {
+        "Recessions": four.posteriors[usrec == 1].mean(),
+        "Expansions": four.posteriors[usrec == 0].mean(),
+        "Occupancy": four.posteriors.mean(),
+    }
+).round(3)
+
+# %%
+four.posteriors.loc[worst].round(3)
