@@ -7,6 +7,8 @@ from hmmlearn.hmm import GaussianHMM
 
 from regime_aware_portfolios import load_config, paths
 from regime_aware_portfolios.regimes import (
+    RegimeParameters,
+    filtered_probabilities,
     fit_regimes,
     load_regimes,
     order_regimes,
@@ -105,3 +107,26 @@ def test_save_and_load(factors, tmp_path):
     assert stored.loglike == fit.loglike
     assert stored.record["starts"] == starts
     assert stored.record["first_period"] == "1980-01"
+
+
+def test_filtered_probabilities_use_only_past_data():
+    labels = pd.RangeIndex(1, 3, name="regime")
+    means = pd.DataFrame([[0.01, 0.0], [-0.02, 0.01]], index=labels, columns=["a", "b"])
+    covs = np.stack([np.diag([0.02, 0.01]) ** 2, np.diag([0.06, 0.03]) ** 2])
+    trans = pd.DataFrame([[0.9, 0.1], [0.3, 0.7]], index=labels, columns=labels)
+    start = pd.Series([0.6, 0.4], index=labels)
+    rng = np.random.default_rng(0)
+    x = pd.DataFrame(rng.normal(0, 0.04, (40, 2)), columns=["a", "b"])
+    params = RegimeParameters(
+        ["a", "b"], start, trans, means, covs, pd.DataFrame(), 0.0, {}
+    )
+    filtered, forecast = filtered_probabilities(params, x)
+
+    hmm = GaussianHMM(n_components=2, covariance_type="full")
+    hmm.startprob_, hmm.transmat_ = start.to_numpy(), trans.to_numpy()
+    hmm.means_, hmm.covars_ = means.to_numpy(), covs
+    for t in (0, 9, 39):
+        expected = hmm.predict_proba(x.iloc[: t + 1].to_numpy())[-1]
+        np.testing.assert_allclose(filtered.iloc[t], expected, atol=1e-10)
+    np.testing.assert_allclose(forecast.iloc[0], start)
+    np.testing.assert_allclose(forecast.iloc[10], filtered.iloc[9] @ trans.to_numpy())

@@ -108,6 +108,7 @@ rwls==0.2.0
 scikit-learn==1.9.1
 scipy==1.18.1
 scs==3.3.1
+seaborn==0.13.2
 Send2Trash==2.1.0
 setuptools==84.2.1
 six==1.17.0

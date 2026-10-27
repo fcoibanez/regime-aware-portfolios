@@ -23,7 +23,7 @@ import pandas as pd
 
 from regime_aware_portfolios import figures, load_config
 from regime_aware_portfolios.paths import CONFIG, DERIVED, OUTPUT, RESULTS
-from regime_aware_portfolios.regimes import load_regimes
+from regime_aware_portfolios.regimes import filtered_probabilities, load_regimes
 
 figures.style()
 SMOOTH_MONTHS = 6
@@ -41,7 +41,7 @@ recession = pd.read_parquet(DERIVED / "usrec.parquet")["usrec"].reindex(
 
 # %%
 fig = figures.timeline_figure(probability, recession, label, SPLIT, SMOOTH_MONTHS)
-fig.savefig(OUTPUT / "figures" / "regime_timeline.pdf")
+figures.save(fig, OUTPUT / "figures" / "regime_timeline.pdf")
 plt.show()
 
 # %% [markdown]
@@ -74,3 +74,45 @@ for start, end in spans:
     p = probability[start:end]
     print(f"{start:%Y-%m} to {end:%Y-%m}: mean {p.mean():.2f}, max {p.max():.2f}")
 print(np.round(probability.groupby(recession).describe(), 3))
+
+# %% [markdown]
+# ## Without hindsight, and as the most likely regime
+#
+# The posteriors above are smoothed: each uses the whole sample. The filtered
+# probability uses only the data up to each month (with the parameters of the
+# whole sample). The modal regime is the one with the highest posterior.
+
+# %%
+factors = pd.read_parquet(DERIVED / "factors.parquet").loc[probability.index]
+filtered, forecast = filtered_probabilities(regimes, factors)
+modal = regimes.posteriors.idxmax(axis=1) == regime
+pd.Series(
+    {
+        "Filtered, recessions": filtered[regime][recession == 1].mean(),
+        "Filtered, expansions": filtered[regime][recession == 0].mean(),
+        "Modal in recession months": modal[recession == 1].mean(),
+        "Modal in all months": modal.mean(),
+    }
+).round(3)
+
+# %% [markdown]
+# Correlation of the posterior with the recession indicator k months ahead
+# (negative k: behind).
+
+# %%
+pd.Series(
+    {k: probability.corr(recession.shift(-k)) for k in range(-6, 7)},
+    name="correlation",
+).round(3)
+
+# %% [markdown]
+# The longest episodes above one half that overlap no recession.
+
+# %%
+episodes = [
+    (start, end, (end.to_period("M") - start.to_period("M")).n + 1)
+    for start, end in figures.recession_spans(probability > 0.5)
+    if not recession[start:end].any()
+]
+for start, end, months in sorted(episodes, key=lambda e: -e[2])[:6]:
+    print(f"{start:%Y-%m} to {end:%Y-%m}: {months} months")

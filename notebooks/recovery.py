@@ -30,14 +30,21 @@ folder = RESULTS / cfg.name / "recovery"
 loadings = np.load(folder / "loadings.npz")
 summary = pd.read_parquet(folder / "summary.parquet")
 
+# %% [markdown]
+# Each panel plots 1,000 stocks: the 200 of each of the first five paths.
+# The summary statistics below use every path.
+
 # %%
+SHOWN_PATHS = 5
 true, estimated = loadings["true"], loadings["estimated"]
 for k, factor in enumerate(loadings["factors"]):
-    t = true[:, :, k, :].reshape(-1, true.shape[3])
-    e = estimated[:, :, k, :].reshape(-1, true.shape[3])
-    fig = figures.recovery_figure(t, e, cfg.regime_labels)
+    t = true[:SHOWN_PATHS, :, k, :].reshape(-1, true.shape[3])
+    e = estimated[:SHOWN_PATHS, :, k, :].reshape(-1, true.shape[3])
+    fig = figures.recovery_figure(t, e)
     name = {"Mkt-RF": "mktrf", "Mom": "umd"}.get(str(factor), str(factor).lower())
-    fig.savefig(OUTPUT / "figures" / f"recovery_{name}.pdf")
+    figures.save(
+        fig, OUTPUT / "figures" / f"recovery_{name}.pdf", dpi=50, transparent=False
+    )
     plt.show()
 
 # %% [markdown]
@@ -48,3 +55,10 @@ summary.pivot(index="factor", columns="regime", values="Correlation").round(3)
 
 # %%
 summary.pivot(index="factor", columns="regime", values="RMSE").round(3)
+
+# %% [markdown]
+# Mean error of the estimated loadings: close to zero against the RMSE, so the
+# estimates are centered on the truth.
+
+# %%
+summary.pivot(index="factor", columns="regime", values="Mean error").round(3)

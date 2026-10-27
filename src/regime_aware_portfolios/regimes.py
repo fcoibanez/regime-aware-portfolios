@@ -28,11 +28,14 @@ import rwls
 from joblib import Parallel, delayed
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
+from scipy.special import logsumexp
+from scipy.stats import multivariate_normal
 
 from regime_aware_portfolios.config import StudyConfig
 
 __all__ = [
     "RegimeParameters",
+    "filtered_probabilities",
     "fit_regimes",
     "load_regimes",
     "order_regimes",
@@ -203,4 +206,39 @@ def load_regimes(folder: str | Path) -> RegimeParameters:
         posteriors=posteriors,
         loglike=record["loglike"],
         record=record,
+    )
+
+
+def filtered_probabilities(
+    regimes: RegimeParameters, factors: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Regime probabilities from the data up to each period, for fixed parameters.
+
+    Returns the filtered probabilities, given the data up to and including each
+    period, and the one-step forecasts, given the data up to the period before
+    (the initial distribution for the first). Unlike the stored posteriors,
+    neither uses later data, though the parameters are those of the whole sample.
+    """
+    x = factors[regimes.factor_names].to_numpy()
+    log_like = np.column_stack(
+        [
+            multivariate_normal(mean, cov).logpdf(x)
+            for mean, cov in zip(
+                regimes.means.to_numpy(), regimes.covariances, strict=True
+            )
+        ]
+    )
+    log_trans = np.log(regimes.transmat.to_numpy())
+    log_prior = np.log(regimes.startprob.to_numpy())
+    filtered = np.empty_like(log_like)
+    forecast = np.empty_like(log_like)
+    for t in range(len(x)):
+        forecast[t] = log_prior
+        joint = log_prior + log_like[t]
+        filtered[t] = joint - logsumexp(joint)
+        log_prior = logsumexp(filtered[t][:, None] + log_trans, axis=0)
+    labels = regimes.transmat.index
+    return (
+        pd.DataFrame(np.exp(filtered), index=factors.index, columns=labels),
+        pd.DataFrame(np.exp(forecast), index=factors.index, columns=labels),
     )

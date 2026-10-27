@@ -45,7 +45,7 @@ print(text)
 
 # %%
 fig = figures.ecdf_figure(stats, list(columns), phis)
-fig.savefig(FIGURES / "benchmark_ecdf.pdf")
+figures.save(fig, FIGURES / "benchmark_ecdf.pdf")
 plt.show()
 
 # %% [markdown]

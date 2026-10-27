@@ -46,7 +46,9 @@ differences = pd.DataFrame(rows)
 
 # %%
 fig = figures.rolling_window_figure(differences)
-fig.savefig(OUTPUT / "figures" / "rolling_window_sensitivity.pdf")
+figures.save(
+    fig, OUTPUT / "figures" / "rolling_window_sensitivity.pdf", bbox_inches=None
+)
 plt.show()
 
 # %%

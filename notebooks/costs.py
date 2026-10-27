@@ -51,7 +51,7 @@ fig = figures.cost_figure(
     costs["one_way"],
     costs["one_way_cap_weighted"],
 )
-fig.savefig(OUTPUT / "figures" / "cost_sensitivity.pdf")
+figures.save(fig, OUTPUT / "figures" / "cost_sensitivity.pdf")
 plt.show()
 
 

@@ -21,6 +21,7 @@ dependencies = [
     "cvxpy",
     "pyarrow",
     "matplotlib",
+    "seaborn",
 ]
 
 [project.optional-dependencies]

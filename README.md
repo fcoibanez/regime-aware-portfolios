@@ -74,6 +74,7 @@ notebooks once jupytext is installed (`pip install -e .[notebooks]`).
 
 | Exhibit | Notebook | Output | Stages |
 |---|---|---|---|
+| Section 4.1, the calibration sample | `sample.py` | (printed counts) | 1 |
 | Table 1, regime model | `regime_model.py` | `tables/regime_model.tex` | 2 |
 | Figure 1, number of regimes | `regime_selection.py` | `figures/state_calibration.pdf`, `tables/state_selection.tex` | 8 |
 | Figure 2, regimes and recessions | `regime_timeline.py` | `figures/regime_timeline.pdf` | 1, 2 |

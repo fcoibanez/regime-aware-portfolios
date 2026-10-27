@@ -22,7 +22,7 @@ import pandas as pd
 
 from regime_aware_portfolios import exhibits, load_config
 from regime_aware_portfolios.paths import CONFIG, DERIVED, OUTPUT, RESULTS
-from regime_aware_portfolios.regimes import load_regimes
+from regime_aware_portfolios.regimes import filtered_probabilities, load_regimes
 
 TABLES = OUTPUT / "tables"
 
@@ -77,3 +77,44 @@ factors = pd.read_parquet(DERIVED / "factors.parquet").loc[
 text = exhibits.momentum_table(factors, regimes.posteriors, cfg.regime_labels)
 exhibits.write(text, TABLES / "appendix" / "momentum_crashes.tex")
 print(text)
+
+# %% [markdown]
+# The assignment of these months to the turbulent regime is close to
+# definitional: the regime takes most of the extreme months of every factor.
+# Share of each factor's months in its lowest and highest percentile whose most
+# likely regime is the most volatile one:
+
+# %%
+turbulent = cfg.regimes.n_regimes
+modal = regimes.posteriors.idxmax(axis=1)
+tails = {}
+for f in cfg.factor_names:
+    lo, hi = factors[f].quantile(0.01), factors[f].quantile(0.99)
+    extreme = (factors[f] <= lo) | (factors[f] >= hi)
+    tails[exhibits.FACTOR_LABELS.get(f, f)] = (modal[extreme] == turbulent).mean()
+pd.Series(tails).round(2)
+
+# %% [markdown]
+# What is not definitional: the forecast probability of the turbulent regime
+# for each crash month, from the data up to the month before, and the market's
+# cumulative excess return over the preceding year.
+
+# %%
+_, forecast = filtered_probabilities(regimes, factors)
+mom = factors["Mom"]
+worst = mom.index[mom <= mom.quantile(0.01)]
+crashes = pd.DataFrame(
+    {
+        "Forecast probability": forecast.loc[worst, turbulent].to_numpy(),
+        "Market, prior 12 months": [
+            factors["Mkt-RF"].iloc[i - 12 : i].sum()
+            for i in factors.index.get_indexer(worst)
+        ],
+    },
+    index=worst.strftime("%Y-%m"),
+)
+print(crashes.round(3))
+print(
+    f"Mean forecast {crashes['Forecast probability'].mean():.3f}, "
+    f"unconditional {forecast[turbulent].mean():.3f}"
+)
