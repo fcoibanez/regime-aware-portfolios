@@ -50,9 +50,13 @@ def pct(x, digits=2):
 # %%
 data = json.loads((DERIVED / "run.json").read_text(encoding="utf-8"))["summary"]
 costs = json.loads((DERIVED / "costs.json").read_text(encoding="utf-8"))
+# Section 4.1 counts the stocks with at least one return; stage 1 also holds a
+# few with none.
+stocks = pd.read_parquet(DERIVED / "stocks.parquet", columns=["excess_ret"])
+with_return = stocks[stocks["excess_ret"].notna()].index.get_level_values("permno")
 values |= {
     "SampleMonths": f"{data['months']:,}".replace(",", "{,}"),
-    "SampleStocks": f"{data['stocks']:,}".replace(",", "{,}"),
+    "SampleStocks": f"{with_return.nunique():,}".replace(",", "{,}"),
     "RecessionMonths": str(data["recession_months"]),
     "OneWayCost": pct(costs["one_way"], 4),
     "OneWayCostCapWeighted": pct(costs["one_way_cap_weighted"], 4),
