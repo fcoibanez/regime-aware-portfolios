@@ -31,11 +31,11 @@ loadings = np.load(folder / "loadings.npz")
 summary = pd.read_parquet(folder / "summary.parquet")
 
 # %% [markdown]
-# Each panel plots 1,000 stocks: the 200 of each of the first five paths.
+# Each panel plots 1,000 stocks: the 500 of each of the first two paths.
 # The summary statistics below use every path.
 
 # %%
-SHOWN_PATHS = 5
+SHOWN_PATHS = 2
 true, estimated = loadings["true"], loadings["estimated"]
 for k, factor in enumerate(loadings["factors"]):
     t = true[:SHOWN_PATHS, :, k, :].reshape(-1, true.shape[3])
