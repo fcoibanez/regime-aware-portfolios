@@ -32,7 +32,7 @@ n_starts = 1000
 n_subperiods = 3                  # the full sample and this many equal sub-periods
 
 [simulation]
-n_paths = 1000
+n_paths = 10000
 n_stocks = 500
 n_in_sample = 600                 # months before the first decision date
 n_out_of_sample = 60              # decision dates
