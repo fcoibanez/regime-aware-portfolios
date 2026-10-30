@@ -187,6 +187,7 @@ class InferenceConfig:
     bootstrap_draws: int
     bootstrap_block: int
     detection_multiples: tuple[int, ...]
+    detection_histories: int
 
     def __post_init__(self) -> None:
         _require(0 < self.alpha < 1, "inference.alpha must be in (0, 1)")
@@ -199,6 +200,10 @@ class InferenceConfig:
         _require(
             len(self.detection_multiples) > 0 and min(self.detection_multiples) >= 1,
             "inference.detection_multiples must list positive integers",
+        )
+        _require(
+            self.detection_histories >= 2,
+            "inference.detection_histories must be at least 2",
         )
 
 

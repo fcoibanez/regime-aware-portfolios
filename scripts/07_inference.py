@@ -162,6 +162,7 @@ def main(argv: list[str] | None = None) -> None:
             inf.bootstrap_block,
             inf.bootstrap_draws,
             cfg.seeds.bootstrap,
+            inf.detection_histories,
         ).reset_index()
         part.insert(0, "benchmark", benchmark)
         parts.append(part)

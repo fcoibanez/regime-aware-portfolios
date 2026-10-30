@@ -55,6 +55,7 @@ alpha = 0.05
 bootstrap_draws = 499
 bootstrap_block = 1
 detection_multiples = [1, 2, 4, 8, 16]   # history lengths, in multiples of one path
+detection_histories = 625         # most histories of each length: n_paths / 16
 
 [seeds]
 regimes = 13                      # first cold start; start j uses regimes + j

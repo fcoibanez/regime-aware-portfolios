@@ -233,14 +233,15 @@ def detection_by_horizon(
     block: int,
     draws: int,
     seed: int,
-    max_histories: int = 150,
+    max_histories: int,
 ) -> pd.DataFrame:
     """Rejection rate of the bootstrap test as histories grow longer.
 
     Histories of k paths are formed by joining k consecutive paths' returns, for
-    each k in ``multiples``. The joined paths are independent draws from the
-    same process, so the history has the right distribution of returns, though
-    not the continuity of one regime sequence across the joins.
+    each k in ``multiples``, up to ``max_histories`` of each length. The joined
+    paths are independent draws from the same process, so the history has the
+    right distribution of returns, though not the continuity of one regime
+    sequence across the joins.
     """
     rows = {}
     for k in multiples:

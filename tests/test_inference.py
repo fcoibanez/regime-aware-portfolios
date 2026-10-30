@@ -81,6 +81,8 @@ def test_rejection_summary_and_detection():
     rng = np.random.default_rng(5)
     a = [rng.normal(0.01, 0.03, 12) for _ in range(8)]
     b = [x - 0.01 + rng.normal(0, 0.005, 12) for x in a]
-    det = detection_by_horizon(a, b, [1, 2, 4], 0.05, 1, 49, seed=1)
+    det = detection_by_horizon(a, b, [1, 2, 4], 0.05, 1, 49, seed=1, max_histories=8)
     assert list(det.index) == [12, 24, 48]
     assert (det["Histories"] == [8, 4, 2]).all()
+    det = detection_by_horizon(a, b, [1, 2, 4], 0.05, 1, 49, seed=1, max_histories=3)
+    assert (det["Histories"] == [3, 3, 2]).all()
