@@ -89,11 +89,17 @@ def number(x: float, digits: int = 2) -> str:
     return text[1:] if text.startswith("-") and float(text) == 0 else text
 
 
+# Space as wide as three stars. A starred number ends with it, its stars printed
+# over it; the other cells of a right-aligned column holding starred numbers end
+# with it too, so that every number in the column lines up.
+_STAR_SPACE = r"\phantom{$^{***}$}"
+
+
 def starred(x: float, p: float, digits: int = 3) -> str:
     """A number with the stars of its p-value, aligned on the stars' width."""
     stars = "***" if p < 0.01 else "**" if p < 0.05 else "*" if p < 0.10 else ""
     mark = rf"\rlap{{$^{{{stars}}}$}}" if stars else ""
-    return f"{x:.{digits}f}{mark}\\phantom{{$^{{***}}$}}"
+    return f"{number(x, digits)}{mark}{_STAR_SPACE}"
 
 
 def _phi_label(phi: float) -> str:
@@ -235,6 +241,11 @@ def significance_table(
                 ],
             ),
         ]
+        # Every cell takes the stars' space, so the starred row lines up with the rest.
+        rows = [
+            (label, [c if c.endswith(_STAR_SPACE) else c + _STAR_SPACE for c in cells])
+            for label, cells in rows
+        ]
         blocks.append((_phi_label(phi), rows))
     return _table(
         ["", *columns.values()],
@@ -341,7 +352,7 @@ def decomposition_table(
             (
                 "Total",
                 [
-                    f"{total:.3f}\\phantom{{$^{{***}}$}}",
+                    f"{number(total, 3)}{_STAR_SPACE}",
                     "--",
                     "--",
                     "--",
