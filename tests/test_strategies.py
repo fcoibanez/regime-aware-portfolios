@@ -2,7 +2,6 @@ import dataclasses
 import logging
 
 import numpy as np
-import pandas as pd
 import pytest
 import rwls
 
@@ -10,11 +9,9 @@ from regime_aware_portfolios import load_config, paths
 from regime_aware_portfolios.simulation import DataGeneratingProcess, simulate_path
 from regime_aware_portfolios.strategies import (
     Strategy,
-    _factor_moments,
     decision_dates,
     decisions,
     portfolio,
-    regime_weights,
     study_strategies,
 )
 
@@ -30,7 +27,12 @@ def _process():
         initial=np.array([2 / 3, 1 / 3]),
         transmat=trans,
         factor_means=np.array([[0.01, 0.002], [-0.02, 0.004]]),
-        factor_vols=np.array([[0.04, 0.02], [0.08, 0.03]]),
+        factor_covs=np.array(
+            [
+                [[0.04**2, 0.0004], [0.0004, 0.02**2]],
+                [[0.08**2, -0.0012], [-0.0012, 0.03**2]],
+            ]
+        ),
         loadings_mean=np.array([1.0, 1.2, 0.3, 0.5]),
         loadings_factor=0.2 * np.eye(4),
         resid_intercept=np.array([-5.5, -5.0]),
@@ -71,14 +73,25 @@ def test_each_costa_kwon_step_changes_one_choice():
     assert changed("costa_kwon", "path_regimes") == {"n_regimes"}
     assert changed("path_regimes", "path_factors") == {"regime_factors"}
     assert changed("path_factors", "path_forecast") == {"forecast"}
-    assert changed("path_forecast", "path_covariance") == {"factor_cov"}
-    assert changed("path_covariance", "framework_mvo") == {"weighting", "window"}
+    assert changed("path_forecast", "framework_mvo") == {"weighting", "window"}
     assert changed("framework_mvo", "framework") == {"objective"}
     assert changed("framework", "oracle") == {"oracle"}
+    assert changed("framework", "framework_diag") == {"covariance"}
     ck = s["costa_kwon"]
     assert (ck.n_regimes, ck.regime_factors, ck.window) == (2, ("Mkt-RF",), 24)
-    assert (ck.forecast, ck.factor_cov, ck.weighting) == ("current_row", "full", "hard")
+    assert (ck.forecast, ck.covariance, ck.weighting) == ("current_row", "full", "hard")
     assert {"rolling_24", "rolling_36", "rolling_60"} <= set(s)
+    assert "path_covariance" not in s
+
+
+def test_a_diagonal_framework_adds_the_covariance_step(cfg):
+    diag = dataclasses.replace(
+        cfg, strategies=dataclasses.replace(cfg.strategies, regime_covariance="diag")
+    )
+    s = study_strategies(diag)
+    assert s["framework"].covariance == "diag" and "framework_diag" not in s
+    assert s["path_covariance"].covariance == "diag"
+    assert s["costa_kwon"].covariance == "full"
 
 
 @pytest.mark.parametrize("name, window", [("agnostic", None), ("rolling_36", 36)])
@@ -101,56 +114,28 @@ def test_agnostic_expected_returns_are_the_sample_means(cfg, path, name, window)
         np.testing.assert_allclose(dec.moments.covariance(0), expected, atol=1e-12)
 
 
-@pytest.mark.parametrize("weighting", ["posterior", "hard"])
-def test_regime_weights_are_those_of_rwls(path, weighting):
-    rng = np.random.default_rng(0)
-    T = 150
-    post = rng.dirichlet([1.0, 1.0], T)
-    post[:140] = [[0.95, 0.05]] * 140  # regime 2 is rare: its fallback is used
-    settings = rwls.RWLSSettings(weighting=weighting, hard_window=24)
-    X = path.factors.iloc[:T]
-    res = rwls.RWLS(
-        path.returns.iloc[:T], X, pd.DataFrame(post, index=X.index), settings
-    ).fit()
-    weights = regime_weights(post, settings, n_coefficients=3)
-    means, covs = _factor_moments(X.to_numpy(), weights, full=False)
-    np.testing.assert_allclose(means, res.factor_means.to_numpy(), atol=1e-14)
-    np.testing.assert_allclose(covs, res.factor_covariances, atol=1e-14)
-    np.testing.assert_array_equal(
-        [w.sum() > 3 + 1 for w in weights], True
-    )  # every regime ends above the threshold
-
-
-def test_full_factor_covariance_keeps_the_diagonal(path):
-    X = path.factors.to_numpy()
-    w = [np.ones(len(X))]
-    _, diag = _factor_moments(X, w, full=False)
-    _, full = _factor_moments(X, w, full=True)
-    np.testing.assert_allclose(np.diag(full[0]), np.diag(diag[0]))
-    assert abs(full[0][0, 1]) > 0
-    np.testing.assert_allclose(full[0], np.cov(X, rowvar=False, ddof=0))
-
-
 def test_costa_kwon_uses_the_transition_row_of_the_current_regime(cfg, path):
     s = study_strategies(cfg)["costa_kwon"]
     first = next(iter(decisions(s, path.factors, path.returns, cfg)))
-    fit = rwls.RegimeModel(n_regimes=2, seed=cfg.seeds.regimes).fit(
+    fit = rwls.RegimeModel(n_regimes=2, covariance="full", seed=cfg.seeds.regimes).fit(
         path.factors.iloc[: first.date + 1][["Mkt-RF"]]
     )
     row = fit.transmat.to_numpy()[np.argmax(fit.posteriors.to_numpy()[-1])]
     np.testing.assert_allclose(first.moments.probs, row / row.sum(), atol=1e-10)
 
 
-def test_framework_follows_rwls_expanding(cfg, path):
-    s = study_strategies(cfg)["framework"]
+@pytest.mark.parametrize(
+    "name, covariance", [("framework", "full"), ("framework_diag", "diag")]
+)
+def test_framework_follows_rwls_expanding(cfg, path, name, covariance):
+    s = study_strategies(cfg)[name]
     decs = list(decisions(s, path.factors, path.returns, cfg))
+    settings = rwls.RegimeSettings(
+        n_regimes=2, covariance=covariance, seed=cfg.seeds.regimes
+    )
     steps = list(
         rwls.expanding(
-            path.returns,
-            path.factors,
-            start=150,
-            end=152,
-            regime_settings=rwls.RegimeSettings(n_regimes=2, seed=cfg.seeds.regimes),
+            path.returns, path.factors, start=150, end=152, regime_settings=settings
         )
     )
     for dec, step in zip(decs, steps, strict=True):
@@ -159,13 +144,19 @@ def test_framework_follows_rwls_expanding(cfg, path):
         np.testing.assert_allclose(
             dec.moments.means, [m.mean(r) for r in m.regime_labels]
         )
+        # The regressions' factor covariance follows the regime model's.
+        off = np.abs(step.results.factor_covariances[:, 0, 1])
+        assert (off > 0).all() if covariance == "full" else (off == 0).all()
+        np.testing.assert_allclose(
+            dec.moments.covariance(0), m.cov(m.regime_labels[0]).to_numpy(), atol=1e-14
+        )
 
 
 def test_oracle_given_the_estimated_parameters_matches_the_framework(cfg, path):
     """The two variants differ only in where the regime model comes from."""
     s = study_strategies(cfg)
     est = next(iter(decisions(s["framework"], path.factors, path.returns, cfg)))
-    fit = rwls.RegimeModel(n_regimes=2, seed=cfg.seeds.regimes).fit(
+    fit = rwls.RegimeModel(n_regimes=2, covariance="full", seed=cfg.seeds.regimes).fit(
         path.factors.iloc[: est.date + 1]
     )
     fitted = dataclasses.replace(
@@ -173,7 +164,7 @@ def test_oracle_given_the_estimated_parameters_matches_the_framework(cfg, path):
         initial=fit.startprob.to_numpy(),
         transmat=fit.transmat.to_numpy(),
         factor_means=fit.means.to_numpy(),
-        factor_vols=np.sqrt(fit.variances.to_numpy()),
+        factor_covs=fit.covariances,
     )
     orc = next(iter(decisions(s["oracle"], path.factors, path.returns, cfg, fitted)))
     np.testing.assert_allclose(orc.moments.probs, est.moments.probs, atol=1e-8)
@@ -187,9 +178,9 @@ def test_oracle_uses_the_true_model(cfg, path):
     dec = next(iter(decisions(s, path.factors, path.returns, cfg, dgp)))
     from hmmlearn.hmm import GaussianHMM
 
-    hmm = GaussianHMM(n_components=2, covariance_type="diag")
+    hmm = GaussianHMM(n_components=2, covariance_type="full")
     hmm.startprob_, hmm.transmat_ = dgp.initial, dgp.transmat
-    hmm.means_, hmm.covars_ = dgp.factor_means, dgp.factor_vols**2
+    hmm.means_, hmm.covars_ = dgp.factor_means, dgp.factor_covs
     filtered = hmm.predict_proba(path.factors.iloc[:150].to_numpy())[-1]
     np.testing.assert_allclose(dec.moments.probs, filtered @ dgp.transmat, atol=1e-12)
     with pytest.raises(ValueError, match="data-generating process"):

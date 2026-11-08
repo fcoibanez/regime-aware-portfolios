@@ -120,23 +120,37 @@ print(
 )
 
 # %% [markdown]
-# ## The external checks for the four-regime model (Online Appendix B)
+# ## The external checks for every model
 #
 # Mean posterior probability of each regime inside and outside NBER recessions,
-# and the regime probabilities in the worst months for momentum.
+# and the regime probabilities in the worst months for momentum: the main model
+# and those of the Online Appendix (A, diagonal covariances; B, two regimes).
 
 # %%
-four = load_regimes(RESULTS / "four_regimes" / "regimes")
-usrec = pd.read_parquet(DERIVED / "usrec.parquet")["usrec"].reindex(
-    four.posteriors.index
-)
-pd.DataFrame(
-    {
-        "Recessions": four.posteriors[usrec == 1].mean(),
-        "Expansions": four.posteriors[usrec == 0].mean(),
-        "Occupancy": four.posteriors.mean(),
-    }
-).round(3)
+usrec = pd.read_parquet(DERIVED / "usrec.parquet")["usrec"]
+for study in ("main", *exhibits.APPENDIX_PREFIX):
+    r = load_regimes(RESULTS / study / "regimes")
+    rec = usrec.reindex(r.posteriors.index)
+    print(study)
+    print(
+        pd.DataFrame(
+            {
+                "Recessions": r.posteriors[rec == 1].mean(),
+                "Expansions": r.posteriors[rec == 0].mean(),
+                "Occupancy": r.posteriors.mean(),
+            }
+        ).round(3)
+    )
+    print(r.posteriors.loc[worst].round(3))
+
+# %% [markdown]
+# Within-regime correlations of the factors in the main model.
 
 # %%
-four.posteriors.loc[worst].round(3)
+for s, cov in zip(regimes.means.index, regimes.covariances, strict=True):
+    sd = np.sqrt(np.diag(cov))
+    corr = pd.DataFrame(
+        cov / np.outer(sd, sd), index=cfg.factor_names, columns=cfg.factor_names
+    )
+    print(cfg.regime_labels[s - 1])
+    print(corr.round(2))

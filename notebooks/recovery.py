@@ -14,7 +14,8 @@
 # the factor returns and RWLS to the stock returns, with nothing known about the
 # data-generating process, and the estimated loadings are compared with the true
 # ones (stage 9). One panel per factor; regimes are matched to the true regimes
-# by their factor means.
+# by their factor means. The last panel compares the error of these estimates
+# with that of the same regressions given the true regime of every month.
 
 # %%
 import matplotlib.pyplot as plt
@@ -46,6 +47,20 @@ for k, factor in enumerate(loadings["factors"]):
         fig, OUTPUT / "figures" / f"recovery_{name}.pdf", dpi=50, transparent=False
     )
     plt.show()
+
+# %% [markdown]
+# Panel (g): root-mean-squared error over every path, with the estimated
+# regimes (bars) and with the true regimes supplied (marks).
+
+# %%
+fig = figures.recovery_error_figure(summary, cfg.regime_labels)
+figures.save(fig, OUTPUT / "figures" / "recovery_known.pdf")
+plt.show()
+
+# %%
+(summary["RMSE"] / summary["RMSE known regimes"]).set_axis(
+    pd.MultiIndex.from_frame(summary[["factor", "regime"]])
+).unstack().round(2)
 
 # %% [markdown]
 # Correlation and root-mean-squared error of estimated and true loadings.

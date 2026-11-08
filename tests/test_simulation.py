@@ -1,3 +1,5 @@
+import dataclasses
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -105,6 +107,39 @@ def test_regimes_and_factors_follow_the_process(dgp):
             X[s == m].mean(axis=0), dgp.factor_means[m], atol=0.002
         )
         np.testing.assert_allclose(X[s == m].std(axis=0), dgp.factor_vols[m], rtol=0.02)
+
+
+def test_factors_are_correlated_within_regimes_as_the_process_says(dgp):
+    rho = np.array([0.6, -0.4])
+    vols = dgp.factor_vols
+    covs = np.stack(
+        [
+            np.array([[v[0] ** 2, r * v[0] * v[1]], [r * v[0] * v[1], v[1] ** 2]])
+            for v, r in zip(vols, rho, strict=True)
+        ]
+    )
+    full = dataclasses.replace(dgp, factor_covs=covs)
+    path = simulate_path(full, 100_000, 1, seed=2, path=0)
+    s = path.states - 1
+    X = path.factors.to_numpy()
+    for m in range(2):
+        assert np.corrcoef(X[s == m].T)[0, 1] == pytest.approx(rho[m], abs=0.01)
+        np.testing.assert_allclose(X[s == m].std(axis=0), vols[m], rtol=0.02)
+    # The regime path and the stocks' parameters do not depend on the covariance.
+    diagonal = simulate_path(dgp, 100_000, 1, seed=2, path=0)
+    np.testing.assert_array_equal(path.states, diagonal.states)
+    np.testing.assert_array_equal(path.loadings, diagonal.loadings)
+
+
+def test_a_diagonal_process_draws_independent_factors(dgp):
+    path = simulate_path(dgp, 500, 1, seed=4, path=1)
+    from regime_aware_portfolios.simulation import path_seed
+
+    streams = path_seed(4, 1).spawn(3)
+    shocks = np.random.default_rng(streams[1]).standard_normal((500, 2))
+    s = path.states - 1
+    expected = dgp.factor_means[s] + dgp.factor_vols[s] * shocks
+    np.testing.assert_array_equal(path.factors.to_numpy(), expected)
 
 
 def test_stock_parameters_follow_the_calibration(dgp):

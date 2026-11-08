@@ -12,7 +12,7 @@ figure of the paper.
 ```
 config/          every parameter of the study, one file per study
   main.toml        the main text
-  alt_calibration.toml, four_regimes.toml   the Online Appendix studies
+  alt_calibration.toml, two_regimes.toml   the Online Appendix studies
 data/            inputs (raw) and rebuilt intermediate files
 src/regime_aware_portfolios/   the study's code, imported by scripts and notebooks
 scripts/         the computing stages, run in order
@@ -50,7 +50,7 @@ The stages run in order from the repository's root folder. Each writes a
 | 5. Backtests | `python scripts/05_backtest.py --config config/<study>.toml` | `results/<study>/backtest/` |
 | 6. Performance statistics | `python scripts/06_metrics.py --config config/<study>.toml` | `results/<study>/metrics/` |
 | 7. Inference | `python scripts/07_inference.py --config config/<study>.toml` | `results/<study>/inference/` |
-| 8. Number of regimes | `python scripts/08_regime_selection.py` (and `--costa-kwon`) | `results/main/regime_selection/` |
+| 8. Number of regimes | `python scripts/08_regime_selection.py --config config/<study>.toml` (and `--costa-kwon`) | `results/<study>/regime_selection/` |
 | 9. Recovery of the loadings | `python scripts/09_recovery.py` | `results/main/recovery/` |
 
 Stage 1 needs the CRSP extract, which is licensed and not included; see
@@ -59,10 +59,14 @@ later stages run once per study, `main` by default. Simulated paths are not
 stored: each is generated from the study's seed and its number, in a few
 milliseconds, by `regime_aware_portfolios.simulation.simulate_path`.
 
-The studies are `main`, `alt_calibration` and `four_regimes`. Stages 2 to 7
-run for each; stages 8 and 9 for `main` only. Stage 5 is the long one, about an
-hour per study on a 32-thread processor, and can be resumed: it skips the
-backtests already on disk.
+The studies are `main`, `alt_calibration` and `two_regimes`. The main study's
+regime model has full within-regime factor covariances; `alt_calibration`
+restricts the model that calibrates the simulation to diagonal ones, and
+`two_regimes` has two regimes throughout. Stages 2 to 7 run for each; stage 8
+for `main` (with and without `--costa-kwon`) and for `alt_calibration`, whose
+grid gives the diagonal-covariance comparison in Figure 1's notebook; stage 9 for
+`main` only. Stage 5 is the long one, about 30 hours per study on a 32-thread
+processor, and can be resumed: it skips the backtests already on disk.
 
 ## Tables and figures
 
@@ -78,14 +82,14 @@ notebooks once jupytext is installed (`pip install -e .[notebooks]`).
 | Table 1, regime model | `regime_model.py` | `tables/regime_model.tex` | 2 |
 | Figure 1, number of regimes | `regime_selection.py` | `figures/state_calibration.pdf`, `tables/state_selection.tex` | 8 |
 | Figure 2, regimes and recessions | `regime_timeline.py` | `figures/regime_timeline.pdf` | 1, 2 |
-| Figure 3, recovery of the loadings | `recovery.py` | `figures/recovery_<factor>.pdf` | 9 |
+| Figure 3, recovery of the loadings | `recovery.py` | `figures/recovery_<factor>.pdf`, `figures/recovery_known.pdf` | 9 |
 | Figure 4, Sharpe ratios across paths | `performance.py` | `figures/benchmark_ecdf.pdf` | 6 |
 | Table 2, performance | `performance.py` | `tables/performance.tex` | 6 |
 | Table 3, significance and costs | `significance.py` | `tables/significance.tex`, `tables/detection_horizon.tex` | 7 |
 | Table 4, design choices | `decomposition.py` | `tables/decomposition.tex`, `tables/objective.tex` | 6 |
 | Table 5, regime-conditional performance | `regime_conditional.py` | `tables/regime_conditional.tex`, `tables/forecast_quality.tex` | 7 |
-| Online Appendix A, alternative calibration | `regime_model.py`, `performance.py`, `significance.py` | `tables/appendix/alt_*.tex` | 2 to 7 |
-| Online Appendix B, four regimes | `regime_model.py`, `performance.py`, `significance.py`, `decomposition.py` | `tables/appendix/m4_*.tex` | 2 to 7 |
+| Online Appendix A, diagonal covariances | `regime_model.py`, `performance.py`, `significance.py` | `tables/appendix/alt_*.tex` | 2 to 8 |
+| Online Appendix B, two regimes | `regime_model.py`, `performance.py`, `significance.py`, `decomposition.py` | `tables/appendix/m2_*.tex` | 2 to 7 |
 | Online Appendix, momentum crashes | `regime_model.py` | `tables/appendix/momentum_crashes.tex` | 2 |
 | Online Appendix, trading costs | `costs.py` | `figures/cost_sensitivity.pdf` | 1, 6 |
 | Online Appendix, paired tests of every measure | `significance.py` | `tables/appendix/significance_{agnostic,ew}.tex` | 6 |

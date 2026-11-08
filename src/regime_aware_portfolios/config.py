@@ -77,6 +77,7 @@ class CalibrationConfig:
 @dataclass(frozen=True)
 class RegimeConfig:
     n_regimes: int
+    covariance: str
     n_starts: int
     selection: str
     order_by: str
@@ -84,6 +85,10 @@ class RegimeConfig:
 
     def __post_init__(self) -> None:
         _require(self.n_regimes >= 1, "regimes.n_regimes must be positive")
+        _require(
+            self.covariance in ("diag", "full"),
+            "regimes.covariance must be 'diag' or 'full'",
+        )
         _require(self.n_starts >= 1, "regimes.n_starts must be positive")
         _require(
             self.selection in ("best", "modal", "nearest"),
@@ -138,6 +143,7 @@ class SimulationConfig:
 class StrategyConfig:
     risk_aversion: tuple[float, ...]
     reported_risk_aversion: tuple[float, ...]
+    regime_covariance: str
     rolling_window: int
     rolling_window_sensitivity: tuple[int, ...]
     costa_kwon_window: int
@@ -152,6 +158,10 @@ class StrategyConfig:
         _require(
             set(self.reported_risk_aversion) <= set(self.risk_aversion),
             "strategies.reported_risk_aversion must be a subset of risk_aversion",
+        )
+        _require(
+            self.regime_covariance in ("diag", "full"),
+            "strategies.regime_covariance must be 'diag' or 'full'",
         )
         _require(
             self.rolling_window >= 2, "strategies.rolling_window must be at least 2"
@@ -297,6 +307,7 @@ class StudyConfig:
         selection = self.regimes.selection
         base = rwls.RegimeSettings(
             n_regimes=self.regimes.n_regimes,
+            covariance=self.regimes.covariance,
             n_starts=self.regimes.n_starts,
             selection="best" if selection == "nearest" else selection,
             seed=self.seeds.regimes,

@@ -70,7 +70,7 @@ if market.exists():
     )
 
 # %% [markdown]
-# ## Multimodality, and what a fourth regime describes
+# ## Multimodality
 #
 # Distinct optima reached by the 1,000 starts.
 
@@ -78,14 +78,34 @@ if market.exists():
 criteria.pivot(index="sample", columns="n_regimes", values="distinct optima")
 
 # %% [markdown]
-# Mean posterior probability of each regime by decade in the best full-sample
-# four-regime fit, which calibrates the four-regime study.
+# ## Full against diagonal covariances
+#
+# Stage 8 run on the Online Appendix A configuration fits the same grid with
+# diagonal within-regime covariances. A negative entry is the margin by which
+# BIC prefers full covariances at that number of regimes.
 
 # %%
-four = load_regimes(RESULTS / "four_regimes" / "regimes")
-p = four.posteriors
+diagonal = RESULTS / "alt_calibration" / "regime_selection" / "criteria.parquet"
+if diagonal.exists():
+    diag = pd.read_parquet(diagonal)
+    print("Selected with diagonal covariances:")
+    print(selected(diag))
+    full_bic = criteria.pivot(index="sample", columns="n_regimes", values="BIC")
+    diag_bic = diag.pivot(index="sample", columns="n_regimes", values="BIC")
+    print((full_bic - diag_bic).round(1))
+    print("Best BIC, full minus diagonal:")
+    print((full_bic.min(axis=1) - diag_bic.min(axis=1)).round(1))
+
+# %% [markdown]
+# Persistence and occupancy by decade of the main model.
+
+# %%
+main = load_regimes(RESULTS / cfg.name / "regimes")
+persistence = pd.Series(np.diag(main.transmat), index=main.transmat.index)
+print(
+    pd.DataFrame({"Persistence": persistence, "Duration": 1 / (1 - persistence)}).round(
+        2
+    )
+)
+p = main.posteriors
 p.groupby(p.index.year // 10 * 10).mean().round(2)
-
-# %%
-persistence = pd.Series(np.diag(four.transmat), index=four.transmat.index)
-pd.DataFrame({"Persistence": persistence, "Duration": 1 / (1 - persistence)}).round(2)

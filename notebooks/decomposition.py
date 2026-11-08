@@ -15,8 +15,9 @@
 # the paired change in Sharpe ratio across paths, so the rows add up to the total.
 # Panel B compares the mean--variance objective with the expected utility of the
 # full mixture, with the regime parameters estimated and known. The steps are
-# `exhibits.DECOMPOSITION_STEPS` and the strategies are defined in
-# `regime_aware_portfolios.strategies`.
+# `exhibits.decomposition_steps` and the strategies are defined in
+# `regime_aware_portfolios.strategies`. With two regimes, the first step changes
+# nothing: Costa and Kwon already use two.
 
 # %%
 import pandas as pd
@@ -36,11 +37,9 @@ def write_tables(study, folder):
     stats = pd.read_parquet(path)
     phis = cfg.strategies.reported_risk_aversion
     prefix = "" if study == "main" else exhibits.APPENDIX_PREFIX[study] + "_"
+    steps = exhibits.decomposition_steps(cfg.strategies.regime_covariance)
     for name, text in (
-        (
-            "decomposition",
-            exhibits.decomposition_table(stats, exhibits.DECOMPOSITION_STEPS, phis),
-        ),
+        ("decomposition", exhibits.decomposition_table(stats, steps, phis)),
         ("objective", exhibits.objective_table(stats, exhibits.OBJECTIVE_PAIRS, phis)),
     ):
         exhibits.write(text, folder / f"{prefix}{name}.tex")
@@ -51,7 +50,7 @@ def write_tables(study, folder):
 write_tables("main", TABLES)
 
 # %% [markdown]
-# ## Four regimes (Online Appendix)
+# ## Two regimes (Online Appendix)
 
 # %%
-write_tables("four_regimes", TABLES / "appendix")
+write_tables("two_regimes", TABLES / "appendix")

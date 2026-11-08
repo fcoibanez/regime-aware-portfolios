@@ -21,23 +21,28 @@ def test_main_configuration_loads():
 
 def test_every_configuration_loads():
     names = {load_config(p).name for p in CONFIG.glob("*.toml")}
-    assert names == {"main", "alt_calibration", "four_regimes"}
+    assert names == {"main", "alt_calibration", "two_regimes"}
 
 
 def test_appendix_files_override_only_what_they_name():
     main = load_config(CONFIG / "main.toml")
     alt = load_config(CONFIG / "alt_calibration.toml")
-    four = load_config(CONFIG / "four_regimes.toml")
-    assert alt.regimes.selection == "nearest"
-    assert set(alt.regimes.reference) == set(alt.factor_names)
-    assert alt.regimes.reference["Mkt-RF"] == (1.03, 6.07, -3.17)
-    assert alt.regime_settings().selection == "best"
-    assert main.regimes.reference == {}
+    two = load_config(CONFIG / "two_regimes.toml")
+    assert main.regimes.covariance == "full"
+    assert main.strategies.regime_covariance == "full"
+    # Appendix A: the process has diagonal covariances; the estimators do not.
+    assert alt.regimes.covariance == "diag"
+    assert alt.regime_settings().covariance == "diag"
+    assert alt.strategies == main.strategies
+    assert alt.regimes.selection == main.regimes.selection == "best"
+    assert alt.regimes.reference == main.regimes.reference == {}
     assert alt.regimes.n_regimes == main.regimes.n_regimes
     assert alt.regimes.n_starts == main.regimes.n_starts
-    assert four.regimes.n_regimes == 4
-    assert four.simulation == main.simulation
-    assert four.seeds == main.seeds
+    # Appendix B: two regimes throughout.
+    assert two.regimes.n_regimes == 2
+    assert two.regimes.covariance == "full"
+    assert two.simulation == main.simulation
+    assert two.seeds == main.seeds
 
 
 def test_rwls_settings_follow_the_configuration():
@@ -45,6 +50,7 @@ def test_rwls_settings_follow_the_configuration():
     s = cfg.regime_settings()
     assert isinstance(s, rwls.RegimeSettings)
     assert (s.n_regimes, s.n_starts, s.selection, s.seed) == (3, 1000, "best", 13)
+    assert s.covariance == "full"
     # Everything else keeps the rwls defaults.
     assert s.tol == rwls.RegimeSettings().tol
     assert cfg.regime_settings(n_regimes=2).n_regimes == 2

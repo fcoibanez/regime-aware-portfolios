@@ -23,7 +23,8 @@ Strategies are combinations of a few choices, held in :class:`Strategy`:
   propagated through the transition matrix ("filtered"), or the transition row of
   the regime with the highest filtered probability ("current_row", as in Costa
   and Kwon, 2020);
-* whether each regime's factor covariance is diagonal or full;
+* whether the regime model's within-regime factor covariance is diagonal or
+  full; the factor covariance each regression supplies follows it;
 * the objective: expected exponential utility over the mixture of regime
   distributions ("mixture"), or mean-variance on the mixture's mean and
   covariance ("mvo");
@@ -77,7 +78,7 @@ class Strategy:
     weighting: str = "posterior"
     window: int | None = None
     forecast: str = "filtered"
-    factor_cov: str = "diag"
+    covariance: str = "full"
     oracle: bool = False
 
     def __post_init__(self) -> None:
@@ -86,7 +87,7 @@ class Strategy:
             "objective": ("mixture", "mvo"),
             "weighting": ("posterior", "hard"),
             "forecast": ("filtered", "current_row"),
-            "factor_cov": ("diag", "full"),
+            "covariance": ("diag", "full"),
         }
         for field, allowed in choices.items():
             if getattr(self, field) not in allowed:
@@ -104,24 +105,31 @@ def study_strategies(cfg: StudyConfig) -> dict[str, Strategy]:
 
     The Costa and Kwon steps change one choice at a time, from their estimator
     to the framework's mean-variance variant: the number of regimes, the factors
-    the regime model sees, the forecast rule, the factor covariance, and the
+    the regime model sees, the forecast rule, the factor covariance (only if the
+    framework restricts it to be diagonal; Costa and Kwon do not), and the
     observation weights. The framework then differs only in its objective.
+
+    With full covariances, ``framework_diag`` is the framework with its regime
+    model restricted to diagonal covariances, which measures what the
+    restriction costs.
     """
     st = cfg.strategies
     M = cfg.regimes.n_regimes
+    cov = st.regime_covariance
     ck = dict(
         estimator="regimes",
         objective="mvo",
         weighting="hard",
         window=st.costa_kwon_window,
         forecast="current_row",
-        factor_cov="full",
+        covariance="full",
     )
+    framework = dict(n_regimes=M, covariance=cov)
     out = [
-        Strategy("framework", "regimes", "mixture", n_regimes=M),
-        Strategy("framework_mvo", "regimes", "mvo", n_regimes=M),
-        Strategy("oracle", "regimes", "mixture", n_regimes=M, oracle=True),
-        Strategy("oracle_mvo", "regimes", "mvo", n_regimes=M, oracle=True),
+        Strategy("framework", "regimes", "mixture", **framework),
+        Strategy("framework_mvo", "regimes", "mvo", **framework),
+        Strategy("oracle", "regimes", "mixture", oracle=True, **framework),
+        Strategy("oracle_mvo", "regimes", "mvo", oracle=True, **framework),
         Strategy("agnostic", "agnostic"),
         *[
             Strategy(f"rolling_{w}", "agnostic", window=w)
@@ -138,14 +146,23 @@ def study_strategies(cfg: StudyConfig) -> dict[str, Strategy]:
         ),
         Strategy("path_factors", n_regimes=M, **ck),
         Strategy("path_forecast", n_regimes=M, **{**ck, "forecast": "filtered"}),
-        Strategy(
-            "path_covariance",
-            n_regimes=M,
-            **{**ck, "forecast": "filtered", "factor_cov": "diag"},
-        ),
         Strategy("minimum_variance", "minimum_variance"),
         Strategy("equal_weight", "equal_weight"),
     ]
+    if cov == "diag":
+        out.append(
+            Strategy(
+                "path_covariance",
+                n_regimes=M,
+                **{**ck, "forecast": "filtered", "covariance": "diag"},
+            )
+        )
+    else:
+        out.append(
+            Strategy(
+                "framework_diag", "regimes", "mixture", n_regimes=M, covariance="diag"
+            )
+        )
     return {s.name: s for s in out}
 
 
@@ -228,7 +245,11 @@ def _rwls_settings(strategy: Strategy, cfg: StudyConfig) -> rwls.RWLSSettings:
 
 
 def _estimated(strategy, factors, returns, cfg, dates) -> Iterator[Decision]:
-    settings = rwls.RegimeSettings(n_regimes=strategy.n_regimes, seed=cfg.seeds.regimes)
+    settings = rwls.RegimeSettings(
+        n_regimes=strategy.n_regimes,
+        covariance=strategy.covariance,
+        seed=cfg.seeds.regimes,
+    )
     rwls_settings = _rwls_settings(strategy, cfg)
     regime_factors = list(strategy.regime_factors) if strategy.regime_factors else None
     steps = rwls.expanding(
@@ -249,18 +270,10 @@ def _estimated(strategy, factors, returns, cfg, dates) -> Iterator[Decision]:
                 step.regimes.transmat.to_numpy(),
                 settings.forecast_floor,
             )
+        # The regression's factor moments: weighted by the same observation
+        # weights as the loadings, with the covariance of the regime model.
         results = step.results
-        if strategy.factor_cov == "diag":
-            fm, fc = results.factor_means.to_numpy(), results.factor_covariances
-        else:
-            weights = regime_weights(
-                step.regimes.posteriors.to_numpy(),
-                rwls_settings,
-                n_coefficients=factors.shape[1] + 1,
-            )
-            fm, fc = _factor_moments(
-                factors.iloc[: d + 1].to_numpy(), weights, full=True
-            )
+        fm, fc = results.factor_means.to_numpy(), results.factor_covariances
         yield Decision(
             d,
             moments=_mixture(results, probs, fm, fc),
@@ -273,14 +286,14 @@ def _estimated(strategy, factors, returns, cfg, dates) -> Iterator[Decision]:
 def _oracle(strategy, factors, returns, cfg, dates, dgp) -> Iterator[Decision]:
     if list(factors.columns) != dgp.factor_names:
         raise ValueError("factors must be those of the data-generating process")
-    hmm = GaussianHMM(n_components=dgp.n_regimes, covariance_type="diag")
+    hmm = GaussianHMM(n_components=dgp.n_regimes, covariance_type="full")
     hmm.startprob_ = dgp.initial
     hmm.transmat_ = dgp.transmat
     hmm.means_ = dgp.factor_means
-    hmm.covars_ = dgp.factor_vols**2
+    hmm.covars_ = dgp.factor_covs
     labels = list(range(1, dgp.n_regimes + 1))
     floor = rwls.RegimeSettings().forecast_floor
-    true_covs = np.stack([np.diag(v**2) for v in dgp.factor_vols])
+    true_covs = dgp.factor_covs
     rwls_settings = _rwls_settings(strategy, cfg)
     for d in dates:
         X, Y = factors.iloc[: d + 1], returns.iloc[: d + 1]
@@ -314,52 +327,6 @@ def _agnostic(strategy, factors, returns, cfg, dates) -> Iterator[Decision]:
 
 
 # --------------------------------------------------------------------- helpers
-
-
-def regime_weights(
-    posteriors: np.ndarray, settings: rwls.RWLSSettings, n_coefficients: int
-) -> list[np.ndarray]:
-    """Observation weights of every regime, as rwls forms them.
-
-    Posterior probabilities, or hard classification into the most recent
-    ``settings.hard_window`` months of each regime; a regime whose weight is at
-    or below the sparse threshold takes the fallback weights.
-    """
-    T, M = posteriors.shape
-    if settings.weighting == "posterior":
-        base = [posteriors[:, s].copy() for s in range(M)]
-    else:
-        labels = posteriors.argmax(axis=1)
-        base = []
-        for s in range(M):
-            w = np.zeros(T)
-            w[np.flatnonzero(labels == s)[-settings.hard_window :]] = 1.0
-            base.append(w)
-    threshold = settings.resolved_min_mass(n_coefficients)
-    out = []
-    for w in base:
-        if w.sum() > threshold:
-            out.append(w)
-            continue
-        fallback = np.zeros(T)
-        if settings.resolved_fallback() == "pooled":
-            fallback[:] = 1.0
-        else:
-            fallback[-settings.hard_window :] = 1.0
-        out.append(fallback)
-    return out
-
-
-def _factor_moments(X: np.ndarray, weights, full: bool):
-    """Weighted factor means and covariances (divided by the total weight)."""
-    means, covs = [], []
-    for w in weights:
-        m = w @ X / w.sum()
-        dev = X - m
-        c = (w[:, None] * dev).T @ dev / w.sum()
-        means.append(m)
-        covs.append((c + c.T) / 2 if full else np.diag(np.diag(c)))
-    return np.array(means), np.array(covs)
 
 
 def _current_row(posteriors: np.ndarray, transmat: np.ndarray, floor: float):

@@ -1,21 +1,14 @@
-# Online Appendix A: the simulation calibrated to the regime model of the
-# original submission, re-estimated. Of the optima reached from the same 1,000
-# starts, it is the one whose regime means are closest to those reported there
-# (Table 1: Bull, Reversal and Bear, monthly %), after matching regimes.
+# Online Appendix A: the simulation calibrated to the regime model with diagonal
+# within-regime factor covariances, the highest likelihood reached from the same
+# 1,000 starts. The factors are then uncorrelated within each regime. The
+# estimators are those of the main study; the framework_diag strategy restricts
+# its own regime model in the same way.
 
 extends = "main.toml"
 name = "alt_calibration"
 
 [regimes]
-selection = "nearest"
-
-[regimes.reference]
-"Mkt-RF" = [1.03, 6.07, -3.17]
-SMB = [0.28, 1.98, -0.90]
-HML = [-0.09, -2.21, 2.63]
-RMW = [0.27, -1.16, 0.81]
-CMA = [-0.06, -2.07, 2.26]
-Mom = [0.98, -2.95, 0.63]
+covariance = "diag"
 
 [exhibits]
-regime_labels = ["Bull", "Reversal", "Bear"]
+regime_labels = ["Value", "Growth", "Turbulence"]

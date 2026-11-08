@@ -1,0 +1,12 @@
+# Online Appendix B: the whole study with two regimes, in the calibration and in
+# the estimators. With full covariances, BIC and ICL select two regimes in each of
+# the three sub-periods (Figure 1).
+
+extends = "main.toml"
+name = "two_regimes"
+
+[regimes]
+n_regimes = 2
+
+[exhibits]
+regime_labels = []                # numbered

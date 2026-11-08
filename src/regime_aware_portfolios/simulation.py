@@ -5,7 +5,7 @@ A path is drawn from the data-generating process in five steps:
 1. a regime path from the Markov chain of the regime model, started from the
    chain's stationary distribution;
 2. factor returns, normal within each regime with that regime's means and
-   variances;
+   covariance matrix (diagonal if the regime model's is);
 3. each stock's loadings, from the calibrated loading distribution;
 4. each stock's log residual variances in every regime, from the calibrated
    regression on its loadings;
@@ -45,15 +45,16 @@ __all__ = [
 class DataGeneratingProcess:
     """Parameters of the simulation, regimes labeled 1 to M.
 
-    Factor means and volatilities have one row per regime. Loadings are ordered
-    by factor, then regime, as in :class:`Calibration`.
+    Factor means have one row per regime and ``factor_covs`` one matrix per
+    regime. Loadings are ordered by factor, then regime, as in
+    :class:`Calibration`.
     """
 
     factor_names: list[str]
     initial: np.ndarray
     transmat: np.ndarray
     factor_means: np.ndarray
-    factor_vols: np.ndarray
+    factor_covs: np.ndarray
     loadings_mean: np.ndarray
     loadings_factor: np.ndarray
     resid_intercept: np.ndarray
@@ -63,6 +64,20 @@ class DataGeneratingProcess:
     @property
     def n_regimes(self) -> int:
         return len(self.initial)
+
+    @property
+    def factor_vols(self) -> np.ndarray:
+        """Factor volatilities, one row per regime."""
+        return np.sqrt(np.diagonal(self.factor_covs, axis1=1, axis2=2))
+
+    @property
+    def factor_root(self) -> np.ndarray:
+        """Lower Cholesky factor of each regime's factor covariance matrix.
+
+        For a diagonal matrix it is the diagonal matrix of volatilities, so that
+        the draws of a diagonal process are those of independent factors.
+        """
+        return np.linalg.cholesky(self.factor_covs)
 
     @classmethod
     def build(
@@ -80,7 +95,7 @@ class DataGeneratingProcess:
             initial=stationary_distribution(transmat),
             transmat=transmat,
             factor_means=regimes.means.to_numpy(),
-            factor_vols=np.sqrt(np.diagonal(regimes.covariances, axis1=1, axis2=2)),
+            factor_covs=np.asarray(regimes.covariances, dtype=float),
             loadings_mean=calibration.loadings_mean.loc[order].to_numpy(),
             loadings_factor=np.linalg.cholesky(loadings_cov),
             resid_intercept=calibration.resid_intercept.to_numpy(),
@@ -98,7 +113,7 @@ class DataGeneratingProcess:
                     "initial",
                     "transmat",
                     "factor_means",
-                    "factor_vols",
+                    "factor_covs",
                     "loadings_mean",
                     "loadings_factor",
                     "resid_intercept",
@@ -148,7 +163,9 @@ def simulate_path(
 
     states = _markov_chain(dgp.initial, dgp.transmat, n_periods, regime_rng)
     shocks = factor_rng.standard_normal((n_periods, len(dgp.factor_names)))
-    factors = dgp.factor_means[states] + dgp.factor_vols[states] * shocks
+    factors = dgp.factor_means[states] + np.einsum(
+        "tkl,tl->tk", dgp.factor_root[states], shocks
+    )
 
     K, M = len(dgp.factor_names), dgp.n_regimes
     loadings = np.empty((n_stocks, K, M))

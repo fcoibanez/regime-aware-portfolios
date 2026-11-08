@@ -44,8 +44,23 @@ def test_performance_table_has_a_row_per_statistic_and_block():
     assert len(rows) == 2 and all(r.count(" & ") == len(columns) for r in rows)
 
 
+def test_decomposition_steps_follow_the_covariance():
+    full = exhibits.decomposition_steps("full")
+    diag = exhibits.decomposition_steps("diag")
+    assert [s[0] for s in full] == [
+        "State count",
+        "Emission dimension",
+        "Probabilistic forecast",
+        "RWLS estimator",
+    ]
+    assert len(diag) == len(full) + 1
+    assert diag[3] == ("Diagonal factor covariance", "path_forecast", "path_covariance")
+    assert full[0][1] == diag[0][1] == "costa_kwon"
+    assert full[-1][2] == diag[-1][2] == "framework_mvo"
+
+
 def test_decomposition_rows_add_up_to_the_total():
-    steps = exhibits.DECOMPOSITION_STEPS
+    steps = exhibits.decomposition_steps("diag")
     names = [steps[0][1]] + [b for _, _, b in steps]
     stats = _stats(names, phis=(10.0,))
     text = exhibits.decomposition_table(stats, steps, [10])

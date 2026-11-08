@@ -130,3 +130,43 @@ for study, prefix in exhibits.APPENDIX_PREFIX.items():
     exhibits.write(text, TABLES / "appendix" / f"{prefix}_significance.tex")
     print(study)
     print(text)
+
+# %% [markdown]
+# ## What the diagonal restriction costs
+#
+# The framework against the same framework with its regime model restricted to
+# diagonal covariances (`framework_diag`), and both against the regime-agnostic
+# benchmark: paired differences across paths, net of trading costs, in each
+# study. The main study's process has full covariances, that of Online Appendix A
+# diagonal ones.
+
+# %%
+from regime_aware_portfolios.inference import paired_comparison  # noqa: E402
+
+rows = []
+for study in ("main", *exhibits.APPENDIX_PREFIX):
+    cfg, stats, _, _ = load(study)
+    if stats is None or "framework_diag" not in set(stats["strategy"]):
+        continue
+    for phi in cfg.strategies.reported_risk_aversion:
+        sel = stats[stats["phi"] == float(phi)].set_index(["strategy", "path"])
+        for a, b in (
+            ("framework", "framework_diag"),
+            ("framework", "agnostic"),
+            ("framework_diag", "agnostic"),
+        ):
+            for measure in ("Sharpe Ratio (net)", "Certainty Equivalent (net)"):
+                r = paired_comparison(sel.loc[a, measure], sel.loc[b, measure])
+                rows.append(
+                    {
+                        "study": study,
+                        "comparison": f"{a} - {b}",
+                        "measure": measure,
+                        "phi": phi,
+                        "Delta": r["Delta"],
+                        "t-stat": r["t-stat"],
+                    }
+                )
+pd.DataFrame(rows).pivot_table(
+    index=["study", "measure", "comparison"], columns="phi", values=["Delta", "t-stat"]
+).round(3)

@@ -35,7 +35,9 @@ def path(cfg):
         initial=np.array([2 / 3, 1 / 3]),
         transmat=np.array([[0.9, 0.1], [0.2, 0.8]]),
         factor_means=np.array([[0.01, 0.002], [-0.02, 0.004]]),
-        factor_vols=np.array([[0.04, 0.02], [0.08, 0.03]]),
+        factor_covs=np.array(
+            [np.diag([0.04**2, 0.02**2]), np.diag([0.08**2, 0.03**2])]
+        ),
         loadings_mean=np.array([1.0, 1.2, 0.3, 0.5]),
         loadings_factor=0.2 * np.eye(4),
         resid_intercept=np.array([-5.5, -5.0]),

@@ -24,11 +24,14 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfFile
 
+from regime_aware_portfolios.exhibits import FACTOR_LABELS
+
 __all__ = [
     "STYLES",
     "cost_figure",
     "ecdf_figure",
     "recession_spans",
+    "recovery_error_figure",
     "recovery_figure",
     "rolling_window_figure",
     "save",
@@ -402,3 +405,53 @@ def recovery_figure(true: np.ndarray, estimated: np.ndarray) -> plt.Figure:
     g.ax_joint.set_xlabel("True")
     g.ax_joint.set_ylabel("Estimated")
     return g.figure
+
+
+def recovery_error_figure(
+    summary: pd.DataFrame, regime_labels: Sequence[str]
+) -> plt.Figure:
+    """Figure 3, last panel: recovery error with estimated and with true regimes.
+
+    One group of bars per factor and one bar per regime, in the colors of
+    :func:`recovery_figure`: the root-mean-squared error of the loadings
+    estimated with the estimated regimes. A black mark on each bar is the error
+    with the true regime of every month supplied. ``summary`` is the summary
+    table of the recovery stage.
+    """
+    factors = list(summary["factor"].unique())
+    m = summary["regime"].nunique()
+    colors = sns.color_palette("Set2", m)
+    width = 0.8 / m
+    x = np.arange(len(factors))
+    fig, ax = plt.subplots(figsize=(6.5, 2.3))
+    for s in range(m):
+        sub = summary[summary["regime"] == s + 1].set_index("factor").loc[factors]
+        pos = x + (s - (m - 1) / 2) * width
+        ax.bar(
+            pos,
+            sub["RMSE"],
+            width * 0.92,
+            color=colors[s],
+            edgecolor="gray",
+            linewidth=0.5,
+            label=f"{s + 1} {regime_labels[s]}",
+            zorder=3,
+        )
+        ax.scatter(
+            pos,
+            sub["RMSE known regimes"],
+            marker="_",
+            s=140,
+            color="black",
+            linewidths=1.6,
+            zorder=4,
+            label="True regimes supplied" if s == 0 else None,
+        )
+    ax.set_xticks(x, [FACTOR_LABELS.get(f, f) for f in factors])
+    ax.set_ylabel("RMSE of loadings", fontsize=9)
+    ax.grid(axis="y", ls="--", zorder=0)
+    ax.set_axisbelow(True)
+    ax.set_ylim(0, 1.3 * summary[["RMSE", "RMSE known regimes"]].to_numpy().max())
+    ax.legend(fontsize=7.5, ncol=m + 1, loc="upper left", frameon=False)
+    fig.tight_layout()
+    return fig

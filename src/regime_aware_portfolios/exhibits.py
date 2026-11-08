@@ -16,10 +16,10 @@ import pandas as pd
 
 __all__ = [
     "APPENDIX_PREFIX",
-    "DECOMPOSITION_STEPS",
     "FACTOR_LABELS",
     "OBJECTIVE_PAIRS",
     "PERFORMANCE_ROWS",
+    "decomposition_steps",
     "decomposition_table",
     "detection_table",
     "forecast_quality_table",
@@ -44,17 +44,29 @@ __all__ = [
 FACTOR_LABELS = {"Mkt-RF": "Mkt-Rf", "Mom": "UMD"}
 
 #: Prefix of the Online Appendix files of each appendix study.
-APPENDIX_PREFIX = {"alt_calibration": "alt", "four_regimes": "m4"}
+APPENDIX_PREFIX = {"alt_calibration": "alt", "two_regimes": "m2"}
 
-#: Table 4, Panel A: one change per row, from Costa and Kwon to the framework
-#: under the mean--variance objective.
-DECOMPOSITION_STEPS = (
-    ("State count", "costa_kwon", "path_regimes"),
-    ("Emission dimension", "path_regimes", "path_factors"),
-    ("Probabilistic forecast", "path_factors", "path_forecast"),
-    ("Diagonal factor covariance", "path_forecast", "path_covariance"),
-    ("RWLS estimator", "path_covariance", "framework_mvo"),
-)
+
+def decomposition_steps(regime_covariance: str) -> tuple[tuple[str, str, str], ...]:
+    """Table 4, Panel A: one change per row, from Costa and Kwon to the framework
+    under the mean--variance objective.
+
+    Costa and Kwon leave each regime's factor covariance unrestricted; a step
+    restricting it is needed only when the framework's covariances are diagonal
+    (``[strategies] regime_covariance``).
+    """
+    steps = [
+        ("State count", "costa_kwon", "path_regimes"),
+        ("Emission dimension", "path_regimes", "path_factors"),
+        ("Probabilistic forecast", "path_factors", "path_forecast"),
+    ]
+    last = "path_forecast"
+    if regime_covariance == "diag":
+        steps.append(("Diagonal factor covariance", last, "path_covariance"))
+        last = "path_covariance"
+    steps.append(("RWLS estimator", last, "framework_mvo"))
+    return tuple(steps)
+
 
 #: Table 4, Panel B: (row suffix, mean--variance, expected utility).
 OBJECTIVE_PAIRS = (

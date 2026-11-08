@@ -61,7 +61,7 @@ def main(argv: list[str] | None = None) -> None:
     rows, transitions = [], np.zeros((M, M))
     loading_sum = np.zeros(K * M)
     loading_sq = np.zeros((K * M, K * M))
-    sums = {"x": np.zeros((M, K)), "x2": np.zeros((M, K)), "n": np.zeros(M)}
+    sums = {"x": np.zeros((M, K)), "xx": np.zeros((M, K, K)), "n": np.zeros(M)}
     n_drawn = 0
     for p in range(sim.n_paths):
         path = simulate_path(dgp, sim.n_periods, sim.n_stocks, cfg.seeds.simulation, p)
@@ -70,7 +70,7 @@ def main(argv: list[str] | None = None) -> None:
         X = path.factors.to_numpy()
         for m in range(M):
             sums["x"][m] += X[s == m].sum(axis=0)
-            sums["x2"][m] += (X[s == m] ** 2).sum(axis=0)
+            sums["xx"][m] += X[s == m].T @ X[s == m]
             sums["n"][m] += (s == m).sum()
         b = path.loadings.reshape(sim.n_stocks, K * M)
         loading_sum += b.sum(axis=0)
@@ -92,7 +92,11 @@ def main(argv: list[str] | None = None) -> None:
     # Simulated against true moments, pooled over all paths.
     trans = transitions / transitions.sum(axis=1, keepdims=True)
     means = sums["x"] / sums["n"][:, None]
-    vols = np.sqrt(sums["x2"] / sums["n"][:, None] - means**2)
+    covs = sums["xx"] / sums["n"][:, None, None] - np.einsum("mk,ml->mkl", means, means)
+    vols = np.sqrt(np.diagonal(covs, axis1=1, axis2=2))
+    corrs = covs / np.einsum("mk,ml->mkl", vols, vols)
+    true_vols = dgp.factor_vols
+    true_corrs = dgp.factor_covs / np.einsum("mk,ml->mkl", true_vols, true_vols)
     b_mean = loading_sum / n_drawn
     b_cov = loading_sq / n_drawn - np.outer(b_mean, b_mean)
     true_cov = dgp.loadings_factor @ dgp.loadings_factor.T
@@ -102,7 +106,8 @@ def main(argv: list[str] | None = None) -> None:
         ).max(),
         "transitions": np.abs(trans - dgp.transmat).max(),
         "factor means": np.abs(means - dgp.factor_means).max(),
-        "factor vols": np.abs(vols - dgp.factor_vols).max(),
+        "factor vols": np.abs(vols - true_vols).max(),
+        "factor correlations": np.abs(corrs - true_corrs).max(),
         "loading means": np.abs(b_mean - dgp.loadings_mean).max(),
         "loading covariance": np.abs(b_cov - true_cov).max(),
     }

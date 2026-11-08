@@ -5,18 +5,24 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import rwls
 
 __all__ = ["recover_path"]
 
 
-def recover_path(config: str | Path, path: int) -> tuple[np.ndarray, np.ndarray]:
+def recover_path(
+    config: str | Path, path: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """True and estimated loadings on the in-sample months of one simulated path.
 
     The regime model is fitted to the path's factor returns as at the framework's
-    first decision date, and RWLS to its stock returns. Both arrays have shape
-    (stocks, factors, regimes); the estimated regimes are put in the order of the
-    true ones, matched by their factor means.
+    first decision date, and RWLS to its stock returns. The same regressions are
+    then run with the true regime of every month as 0/1 weights, the most that
+    any estimate of the regimes could supply. The three arrays have shape
+    (stocks, factors, regimes): true loadings, estimates with the estimated
+    regimes, and estimates with the true regimes. The estimated regimes are put
+    in the order of the true ones, matched by their factor means.
     """
     from regime_aware_portfolios.backtest import _study
     from regime_aware_portfolios.calibration import estimate_stocks
@@ -26,7 +32,11 @@ def recover_path(config: str | Path, path: int) -> tuple[np.ndarray, np.ndarray]
     cfg, dgp = _study(str(config))
     sim = cfg.simulation
     data = simulate_path(dgp, sim.n_in_sample, sim.n_stocks, cfg.seeds.simulation, path)
-    settings = rwls.RegimeSettings(n_regimes=dgp.n_regimes, seed=cfg.seeds.regimes)
+    settings = rwls.RegimeSettings(
+        n_regimes=dgp.n_regimes,
+        covariance=cfg.strategies.regime_covariance,
+        seed=cfg.seeds.regimes,
+    )
     fit = rwls.RegimeModel(settings).fit(data.factors)
     est = estimate_stocks(
         data.returns, data.factors, fit.posteriors, cfg.rwls_settings()
@@ -36,4 +46,11 @@ def recover_path(config: str | Path, path: int) -> tuple[np.ndarray, np.ndarray]
     estimated = est.loadings.to_numpy().reshape(-1, K, M)
     aligned = np.empty_like(estimated)
     aligned[:, :, match_regimes(fit.means.to_numpy(), dgp.factor_means)] = estimated
-    return data.loadings, aligned
+
+    states = pd.DataFrame(
+        np.eye(M)[data.states - 1],
+        index=data.factors.index,
+        columns=pd.Index(range(1, M + 1), name="regime"),
+    )
+    known = estimate_stocks(data.returns, data.factors, states, cfg.rwls_settings())
+    return data.loadings, aligned, known.loadings.to_numpy().reshape(-1, K, M)

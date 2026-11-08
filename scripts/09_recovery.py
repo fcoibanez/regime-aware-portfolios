@@ -3,13 +3,17 @@
 On the first n_in_sample months of every simulated path, fits the regime model
 to the factor returns and RWLS to the stock returns, using only those data, and
 compares the estimated loadings with the true ones. Estimated regimes are
-matched to the true regimes by their factor means. Writes to
+matched to the true regimes by their factor means. The regressions are repeated
+with the true regime of every month supplied, which separates the error due to
+estimating the regimes from the sampling error of the regressions. Writes to
 results/<study>/recovery:
 
-    loadings.npz      true and estimated loadings, each of shape
+    loadings.npz      true loadings, estimates with the estimated regimes and
+                      with the true regimes, each of shape
                       (paths, stocks, factors, regimes)
-    summary.parquet   root-mean-squared error and correlation of estimated and
-                      true loadings, by factor and regime
+    summary.parquet   root-mean-squared error, correlation and mean error of
+                      the estimated loadings, and root-mean-squared error with
+                      the true regimes, by factor and regime
     run.json          configuration, versions and a summary of this run
 
 Usage:
@@ -57,14 +61,16 @@ def main(argv: list[str] | None = None) -> None:
     parts = Parallel(n_jobs=args.jobs)(
         delayed(recover_path)(config, p) for p in range(cfg.simulation.n_paths)
     )
-    true = np.stack([t for t, _ in parts])
-    est = np.stack([e for _, e in parts])
+    true = np.stack([t for t, _, _ in parts])
+    est = np.stack([e for _, e, _ in parts])
+    known = np.stack([k for _, _, k in parts])
 
     names = cfg.factor_names
     rows = []
     for k, factor in enumerate(names):
         for s in range(true.shape[3]):
             t, e = true[:, :, k, s].ravel(), est[:, :, k, s].ravel()
+            kn = known[:, :, k, s].ravel()
             rows.append(
                 {
                     "factor": factor,
@@ -72,6 +78,7 @@ def main(argv: list[str] | None = None) -> None:
                     "RMSE": float(np.sqrt(np.mean((e - t) ** 2))),
                     "Correlation": float(np.corrcoef(e, t)[0, 1]),
                     "Mean error": float(np.mean(e - t)),
+                    "RMSE known regimes": float(np.sqrt(np.mean((kn - t) ** 2))),
                 }
             )
     summary = pd.DataFrame(rows)
@@ -81,6 +88,7 @@ def main(argv: list[str] | None = None) -> None:
         out / "loadings.npz",
         true=true.astype(np.float32),
         estimated=est.astype(np.float32),
+        known=known.astype(np.float32),
         factors=np.array(names),
     )
     summary.to_parquet(out / "summary.parquet")
@@ -91,12 +99,12 @@ def main(argv: list[str] | None = None) -> None:
         summary={
             "min_correlation": float(summary["Correlation"].min()),
             "max_rmse": float(summary["RMSE"].max()),
+            "max_rmse_known_regimes": float(summary["RMSE known regimes"].max()),
         },
     )
-    print(
-        summary.pivot(index="factor", columns="regime", values="Correlation").round(3)
-    )
-    print(summary.pivot(index="factor", columns="regime", values="RMSE").round(3))
+    for column in ("Correlation", "RMSE", "RMSE known regimes"):
+        print(column)
+        print(summary.pivot(index="factor", columns="regime", values=column).round(3))
     print(f"Written: {out}")
 
 
