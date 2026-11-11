@@ -175,6 +175,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     sim = cfg.simulation
     folder = study / "backtest"
+    scale = dgp.factor_vols.mean(axis=0)
     pooled = {
         k: [] for k in ("now_est", "now_true", "fc_est", "fc_true", "s_now", "s_next")
     }
@@ -188,10 +189,10 @@ def main(argv: list[str] | None = None) -> None:
         ag = load_result(result_file(folder, "agnostic", p))
         dates = est.dates
         pooled["now_est"].append(
-            align_probabilities(est.filtered, est.regime_means, dgp.factor_means)
+            align_probabilities(est.filtered, est.regime_means, dgp.factor_means, scale)
         )
         pooled["fc_est"].append(
-            align_probabilities(est.forecast, est.regime_means, dgp.factor_means)
+            align_probabilities(est.forecast, est.regime_means, dgp.factor_means, scale)
         )
         pooled["now_true"].append(orc.filtered)
         pooled["fc_true"].append(orc.forecast)

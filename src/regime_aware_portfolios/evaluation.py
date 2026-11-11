@@ -3,8 +3,11 @@
 A regime model numbers its regimes arbitrarily, so before estimated
 probabilities can be scored against the true regimes of a path, each estimated
 regime is matched to a true one. The match is made at every decision date, by
-the regimes' factor means: each factor is divided by the dispersion of the true
-means across regimes, and the matching minimizes the total distance. This is a
+the regimes' factor means: each factor's means are measured in units of its
+typical within-regime volatility, and the matching minimizes the total distance.
+Volatility is the scale on which estimated means are noisy; dividing instead by
+the dispersion of the true means across regimes lets a factor whose true means
+nearly coincide dominate the distance with estimation noise. This is a
 reporting convention; the portfolios do not depend on the labels.
 
 Probabilities are scored by their hit rate (the share of periods whose most
@@ -31,10 +34,15 @@ __all__ = [
 ]
 
 
-def match_regimes(estimated_means: np.ndarray, true_means: np.ndarray) -> np.ndarray:
-    """For each estimated regime, the true regime it matches (0-based)."""
-    scale = true_means.std(axis=0)
-    scale = np.where(scale > 0, scale, 1.0)
+def match_regimes(
+    estimated_means: np.ndarray, true_means: np.ndarray, scale: np.ndarray
+) -> np.ndarray:
+    """For each estimated regime, the true regime it matches (0-based).
+
+    ``scale`` holds one positive value per factor, the unit in which its means
+    are compared, normally its within-regime volatility averaged over regimes.
+    """
+    scale = np.asarray(scale, dtype=float)
     cost = cdist(estimated_means / scale, true_means / scale)
     rows, cols = linear_sum_assignment(cost)
     out = np.empty(len(rows), dtype=int)
@@ -43,16 +51,19 @@ def match_regimes(estimated_means: np.ndarray, true_means: np.ndarray) -> np.nda
 
 
 def align_probabilities(
-    probs: np.ndarray, estimated_means: np.ndarray, true_means: np.ndarray
+    probs: np.ndarray,
+    estimated_means: np.ndarray,
+    true_means: np.ndarray,
+    scale: np.ndarray,
 ) -> np.ndarray:
     """Probabilities relabeled to the true regimes, date by date.
 
     ``probs`` has shape (dates, regimes) and ``estimated_means`` (dates,
-    regimes, factors).
+    regimes, factors); ``scale`` is as in :func:`match_regimes`.
     """
     out = np.empty_like(probs)
     for d in range(len(probs)):
-        out[d, match_regimes(estimated_means[d], true_means)] = probs[d]
+        out[d, match_regimes(estimated_means[d], true_means, scale)] = probs[d]
     return out
 
 

@@ -9,17 +9,29 @@ from regime_aware_portfolios.evaluation import (
 )
 
 TRUE = np.array([[0.01, 0.002], [-0.02, 0.004], [0.03, -0.01]])
+SCALE = np.array([0.04, 0.02])
 
 
 def test_match_regimes_recovers_a_permutation():
     estimated = TRUE[[2, 0, 1]] + 0.0005
-    np.testing.assert_array_equal(match_regimes(estimated, TRUE), [2, 0, 1])
+    np.testing.assert_array_equal(match_regimes(estimated, TRUE, SCALE), [2, 0, 1])
+
+
+def test_match_regimes_ignores_noise_in_a_factor_whose_means_coincide():
+    # The second factor has nearly the same true mean in both regimes, so the
+    # small noise in its estimates must not outweigh the clear gap in the first.
+    # Scaled by the dispersion of the true means, the noise wins and the two
+    # regimes are swapped.
+    true = np.array([[0.008, 0.0030], [-0.001, 0.0031]])
+    estimated = np.array([[0.007, 0.0034], [0.000, 0.0026]])
+    scale = np.array([0.04, 0.02])
+    np.testing.assert_array_equal(match_regimes(estimated, true, scale), [0, 1])
 
 
 def test_align_probabilities():
     probs = np.array([[0.7, 0.2, 0.1], [0.1, 0.1, 0.8]])
     means = np.stack([TRUE[[2, 0, 1]], TRUE])
-    aligned = align_probabilities(probs, means, TRUE)
+    aligned = align_probabilities(probs, means, TRUE, SCALE)
     np.testing.assert_allclose(aligned, [[0.2, 0.1, 0.7], [0.1, 0.1, 0.8]])
 
 

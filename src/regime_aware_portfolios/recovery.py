@@ -22,7 +22,8 @@ def recover_path(
     any estimate of the regimes could supply. The three arrays have shape
     (stocks, factors, regimes): true loadings, estimates with the estimated
     regimes, and estimates with the true regimes. The estimated regimes are put
-    in the order of the true ones, matched by their factor means.
+    in the order of the true ones, matched by their factor means in units of
+    each factor's within-regime volatility.
     """
     from regime_aware_portfolios.backtest import _study
     from regime_aware_portfolios.calibration import estimate_stocks
@@ -45,7 +46,9 @@ def recover_path(
     K, M = len(dgp.factor_names), dgp.n_regimes
     estimated = est.loadings.to_numpy().reshape(-1, K, M)
     aligned = np.empty_like(estimated)
-    aligned[:, :, match_regimes(fit.means.to_numpy(), dgp.factor_means)] = estimated
+    scale = dgp.factor_vols.mean(axis=0)
+    order = match_regimes(fit.means.to_numpy(), dgp.factor_means, scale)
+    aligned[:, :, order] = estimated
 
     states = pd.DataFrame(
         np.eye(M)[data.states - 1],
