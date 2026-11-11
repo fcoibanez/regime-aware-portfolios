@@ -84,3 +84,17 @@ def test_regime_parameter_table():
     assert r"Volatile & 30.00\% & 70.00\% \\" in text
     panels = exhibits.regime_panels(means, vols, trans, labels)
     assert "Panel C" in panels[2] and r"UMD & 0.50\% & -1.00\%" in panels[0]
+
+
+def test_correlation_table_is_the_lower_triangle_of_each_regime():
+    sd = np.array([0.04, 0.02, 0.03])
+    corr = np.array([[1.0, 0.5, -0.2], [0.5, 1.0, 0.1], [-0.2, 0.1, 1.0]])
+    covariances = np.stack([corr * np.outer(sd, sd), np.eye(3) * 0.01])
+    text = exhibits.correlation_table(
+        covariances, ["Mkt-RF", "SMB", "Mom"], ["Calm", "Volatile"]
+    )
+    assert r" & Mkt-Rf & SMB \\" in text
+    assert r"\textit{Calm regime}" in text and r"\textit{Volatile regime}" in text
+    assert r"SMB & 0.50 &  \\" in text
+    assert r"UMD & -0.20 & 0.10 \\" in text
+    assert r"UMD & 0.00 & 0.00 \\" in text

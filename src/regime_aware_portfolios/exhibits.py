@@ -12,6 +12,7 @@ import re
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     "FACTOR_LABELS",
     "OBJECTIVE_PAIRS",
     "PERFORMANCE_ROWS",
+    "correlation_table",
     "decomposition_steps",
     "decomposition_table",
     "detection_table",
@@ -640,6 +642,28 @@ def regime_panels(
             top=False,
         ),
     )
+
+
+def correlation_table(
+    covariances: np.ndarray,
+    factor_names: Sequence[str],
+    labels: Sequence[str],
+) -> str:
+    """Within-regime factor correlations: one block per regime, lower triangle."""
+    names = [FACTOR_LABELS.get(f, f) for f in factor_names]
+    blocks = []
+    for label, cov in zip(labels, covariances, strict=True):
+        sd = np.sqrt(np.diag(cov))
+        corr = cov / np.outer(sd, sd)
+        rows = [
+            (
+                names[i],
+                [number(corr[i, j]) if j < i else "" for j in range(len(names) - 1)],
+            )
+            for i in range(1, len(names))
+        ]
+        blocks.append((f"{label} regime", rows))
+    return _table(["", *names[:-1]], blocks)
 
 
 def momentum_table(

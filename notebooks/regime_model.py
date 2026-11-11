@@ -147,10 +147,8 @@ for study in ("main", *exhibits.APPENDIX_PREFIX):
 # Within-regime correlations of the factors in the main model.
 
 # %%
-for s, cov in zip(regimes.means.index, regimes.covariances, strict=True):
-    sd = np.sqrt(np.diag(cov))
-    corr = pd.DataFrame(
-        cov / np.outer(sd, sd), index=cfg.factor_names, columns=cfg.factor_names
-    )
-    print(cfg.regime_labels[s - 1])
-    print(corr.round(2))
+text = exhibits.correlation_table(
+    regimes.covariances, cfg.factor_names, cfg.regime_labels
+)
+exhibits.write(text, TABLES / "appendix" / "regime_correlations.tex")
+print(text)
